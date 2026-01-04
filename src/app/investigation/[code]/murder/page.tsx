@@ -202,6 +202,20 @@ export default function MurderSetupPage() {
     [player?.alias_color, takenColors]
   );
 
+  const evidenceLocked = Boolean(player?.evidence?.length);
+  const usedEvidence = useMemo(() => {
+    const used = new Set<string>();
+    players.forEach((entry) => {
+      if (entry.player_id === playerId) {
+        return;
+      }
+      entry.evidence?.forEach((item) => {
+        used.add(buildKey(item));
+      });
+    });
+    return used;
+  }, [players, playerId]);
+
   const lockedIdentity = player?.identity ?? "";
   const isMurderer =
     lockedIdentity === "The Murderer" || identityChoice === "The Murderer";
@@ -272,6 +286,9 @@ export default function MurderSetupPage() {
   };
 
   const toggleEvidence = (item: EvidenceItem) => {
+    if (evidenceLocked) {
+      return;
+    }
     const key = buildKey(item);
     setSelectedEvidence((prev) => {
       const exists = prev.find((entry) => entry.key === key);
@@ -288,6 +305,10 @@ export default function MurderSetupPage() {
 
   const handleSubmitEvidence = async () => {
     if (!code) {
+      return;
+    }
+    if (evidenceLocked) {
+      setStatus("Initial evidence is already locked.");
       return;
     }
     const aliasText = formatAlias(player?.alias_title, player?.alias_color);
@@ -316,6 +337,16 @@ export default function MurderSetupPage() {
         { type: "location", value: murderLocation },
         { type: "motive", value: murderMotive },
       ];
+      const hasDuplicates = evidence.some((item) =>
+        usedEvidence.has(buildKey(item))
+      );
+      if (hasDuplicates) {
+        setIsSaving(false);
+        setStatus(
+          "Double check your cards, it looks like there's been an error."
+        );
+        return;
+      }
 
       const evidenceResult = await submitEvidence(code, playerId, evidence);
       if ("error" in evidenceResult) {
@@ -338,6 +369,7 @@ export default function MurderSetupPage() {
       }
 
       setPlayer((prev) => (prev ? { ...prev, evidence } : prev));
+      router.push(`/investigation/${code}/notebook`);
       return;
     }
 
@@ -348,6 +380,14 @@ export default function MurderSetupPage() {
     }
 
     const evidence = selectedEvidence.map(({ key, ...item }) => item);
+    const hasDuplicates = evidence.some((item) =>
+      usedEvidence.has(buildKey(item))
+    );
+    if (hasDuplicates) {
+      setIsSaving(false);
+      setStatus("Double check your cards, it looks like there's been an error.");
+      return;
+    }
     const evidenceResult = await submitEvidence(code, playerId, evidence);
     setIsSaving(false);
 
@@ -357,6 +397,7 @@ export default function MurderSetupPage() {
     }
 
     setPlayer((prev) => (prev ? { ...prev, evidence } : prev));
+    router.push(`/investigation/${code}/notebook`);
   };
 
   if (!getSupabaseClient()) {
@@ -374,8 +415,7 @@ export default function MurderSetupPage() {
       sx={{
         minHeight: "100vh",
         py: { xs: 6, md: 10 },
-        backgroundImage:
-          "radial-gradient(circle at top right, #ffffff 0%, #f0e6d6 50%, #e5dccb 100%)",
+        backgroundImage: "var(--map-bg)",
       }}
     >
       <Container maxWidth="lg">
@@ -485,7 +525,12 @@ export default function MurderSetupPage() {
 
           <Paper variant="outlined" sx={{ p: 3 }}>
             <Stack spacing={3}>
-              <Typography variant="h6">Evidence</Typography>
+              <Typography variant="h6">Initial Evidence</Typography>
+              {evidenceLocked && (
+                <Typography variant="body2" color="text.secondary">
+                  Initial evidence is locked. Continue in The Notebook.
+                </Typography>
+              )}
               {isMurderer ? (
                 <Stack spacing={2}>
                   <Typography variant="body2" color="text.secondary">
@@ -504,6 +549,7 @@ export default function MurderSetupPage() {
                           onChange={(event) =>
                             setMurderWeapon(event.target.value)
                           }
+                          disabled={evidenceLocked}
                         >
                           {WEAPONS.map((weapon) => (
                             <MenuItem key={weapon} value={weapon}>
@@ -523,6 +569,7 @@ export default function MurderSetupPage() {
                           onChange={(event) =>
                             setMurderLocation(event.target.value)
                           }
+                          disabled={evidenceLocked}
                         >
                           {LOCATIONS.map((location) => (
                             <MenuItem key={location} value={location}>
@@ -542,6 +589,7 @@ export default function MurderSetupPage() {
                           onChange={(event) =>
                             setMurderMotive(event.target.value)
                           }
+                          disabled={evidenceLocked}
                         >
                           {MOTIVES.map((motive) => (
                             <MenuItem key={motive} value={motive}>
@@ -585,6 +633,7 @@ export default function MurderSetupPage() {
                                   control={
                                     <Checkbox
                                       checked={checked}
+                                      disabled={evidenceLocked}
                                       onChange={() =>
                                         toggleEvidence({
                                           type: group.type as EvidenceItem["type"],
@@ -609,15 +658,36 @@ export default function MurderSetupPage() {
                 <Button
                   variant="contained"
                   onClick={handleSubmitEvidence}
-                  disabled={isSaving}
+                  disabled={isSaving || evidenceLocked}
                 >
                   Submit evidence
+                </Button>
+                <Button
+                  variant="contained"
+                  color="info"
+                  onClick={() => router.push(`/investigation/${code}/notebook`)}
+                >
+                  Open The Notebook
                 </Button>
                 <Button
                   variant="text"
                   onClick={() => router.push(`/investigation/${code}`)}
                 >
                   Back to overview
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() =>
+                    router.push(`/investigation/${code}/crime-computer`)
+                  }
+                  sx={{
+                    bgcolor: "common.white",
+                    "&:hover": {
+                      bgcolor: "grey.100",
+                    },
+                  }}
+                >
+                  Crime Computer
                 </Button>
               </Stack>
             </Stack>

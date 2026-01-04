@@ -20,6 +20,7 @@ export type InvestigationPlayer = {
   identity: string | null;
   is_murderer: boolean;
   evidence: EvidenceItem[] | null;
+  notebook_checks: EvidenceItem[] | null;
   created_at: string;
   updated_at: string;
 };

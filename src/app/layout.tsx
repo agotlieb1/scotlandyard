@@ -1,16 +1,27 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Caveat, Crimson_Pro, Special_Elite } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const dossierFont = Crimson_Pro({
+  variable: "--font-dossier",
   subsets: ["latin"],
+  weight: ["300", "400", "600", "700"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const typewriterFont = Special_Elite({
+  variable: "--font-typewriter",
   subsets: ["latin"],
+  weight: "400",
+  display: "swap",
+});
+
+const handwritingFont = Caveat({
+  variable: "--font-handwriting",
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -26,7 +37,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${dossierFont.variable} ${typewriterFont.variable} ${handwritingFont.variable} antialiased`}
       >
         <Providers>{children}</Providers>
       </body>

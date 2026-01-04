@@ -40,6 +40,7 @@ export default function InvestigationPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const murderLocked = Boolean(player?.evidence?.length);
 
   useEffect(() => {
     let isActive = true;
@@ -149,8 +150,7 @@ export default function InvestigationPage() {
       sx={{
         minHeight: "100vh",
         py: { xs: 6, md: 10 },
-        backgroundImage:
-          "linear-gradient(135deg, #f7f2ea 0%, #efe6d7 45%, #e9dfce 100%)",
+        backgroundImage: "var(--map-bg)",
       }}
     >
       <Container maxWidth="md">
@@ -227,20 +227,40 @@ export default function InvestigationPage() {
                 <Button
                   variant="contained"
                   onClick={() => router.push(`/investigation/${code}/murder`)}
+                  aria-disabled={murderLocked}
+                  sx={
+                    murderLocked
+                      ? {
+                          bgcolor: "grey.300",
+                          color: "text.primary",
+                          boxShadow: "none",
+                          "&:hover": {
+                            bgcolor: "grey.400",
+                          },
+                        }
+                      : undefined
+                  }
                 >
-                  Go to The Murder
+                  Go to The Casefile
                 </Button>
                 <Button
-                  variant="outlined"
+                  variant="contained"
+                  color="info"
                   onClick={() => router.push(`/investigation/${code}/notebook`)}
                 >
                   Open The Notebook
                 </Button>
                 <Button
-                  variant="text"
+                  variant="outlined"
                   onClick={() =>
                     router.push(`/investigation/${code}/crime-computer`)
                   }
+                  sx={{
+                    bgcolor: "common.white",
+                    "&:hover": {
+                      bgcolor: "grey.100",
+                    },
+                  }}
                 >
                   Crime Computer
                 </Button>

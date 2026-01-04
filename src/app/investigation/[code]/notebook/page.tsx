@@ -5,26 +5,57 @@ import {
   Box,
   Button,
   Container,
-  FormControlLabel,
-  Grid,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Paper,
   Stack,
-  Checkbox,
   Typography,
 } from "@mui/material";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-import { ALIAS_COLORS, LOCATIONS, MOTIVES, WEAPONS } from "@/lib/investigation-data";
+import {
+  ALIAS_COLOR_HEX,
+  ALIAS_COLORS,
+  LOCATIONS,
+  MOTIVES,
+  WEAPONS,
+} from "@/lib/investigation-data";
 import { normalizeInvestigationCode } from "@/lib/investigation-code";
-import { fetchPlayers, upsertPlayer } from "@/lib/investigations";
+import {
+  fetchPlayers,
+  updateNotebookChecks,
+  upsertPlayer,
+} from "@/lib/investigations";
 import { formatAlias } from "@/lib/alias";
 import { getPlayerId } from "@/lib/player";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { EvidenceItem, InvestigationPlayer } from "@/lib/types";
 
-const buildChecked = (items: EvidenceItem[] | null, type: EvidenceItem["type"]) =>
-  items?.filter((item) => item.type === type).map((item) => item.value) ?? [];
+const buildChecked = (
+  items: EvidenceItem[] | null,
+  type: EvidenceItem["type"]
+) => items?.filter((item) => item.type === type).map((item) => item.value) ?? [];
+
+const buildNotebookChecks = ({
+  aliases,
+  weapons,
+  locations,
+  motives,
+}: {
+  aliases: string[];
+  weapons: string[];
+  locations: string[];
+  motives: string[];
+}): EvidenceItem[] => [
+  ...aliases.map((value) => ({ type: "alias", value })),
+  ...weapons.map((value) => ({ type: "weapon", value })),
+  ...locations.map((value) => ({ type: "location", value })),
+  ...motives.map((value) => ({ type: "motive", value })),
+];
 
 export default function NotebookPage() {
   const router = useRouter();
@@ -44,6 +75,25 @@ export default function NotebookPage() {
   const [checkedLocations, setCheckedLocations] = useState<string[]>([]);
   const [checkedMotives, setCheckedMotives] = useState<string[]>([]);
   const [status, setStatus] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingUncheck, setPendingUncheck] = useState<{
+    value: string;
+    label: string;
+    category: EvidenceItem["type"];
+  } | null>(null);
+
+  const murdererEvidence = useMemo(() => {
+    const evidenceMap = {
+      alias: new Set<string>(),
+      weapon: new Set<string>(),
+      location: new Set<string>(),
+      motive: new Set<string>(),
+    };
+    player?.evidence?.forEach((item) => {
+      evidenceMap[item.type].add(item.value);
+    });
+    return evidenceMap;
+  }, [player?.evidence]);
 
   useEffect(() => {
     let isActive = true;
@@ -62,10 +112,12 @@ export default function NotebookPage() {
       }
 
       setPlayer(playerResult.data);
-      setCheckedAliases(buildChecked(playerResult.data.evidence, "alias"));
-      setCheckedWeapons(buildChecked(playerResult.data.evidence, "weapon"));
-      setCheckedLocations(buildChecked(playerResult.data.evidence, "location"));
-      setCheckedMotives(buildChecked(playerResult.data.evidence, "motive"));
+      const notebookChecks =
+        playerResult.data.notebook_checks ?? playerResult.data.evidence ?? [];
+      setCheckedAliases(buildChecked(notebookChecks, "alias"));
+      setCheckedWeapons(buildChecked(notebookChecks, "weapon"));
+      setCheckedLocations(buildChecked(notebookChecks, "location"));
+      setCheckedMotives(buildChecked(notebookChecks, "motive"));
 
       const playersResult = await fetchPlayers(code);
       if (!isActive) {
@@ -137,17 +189,179 @@ export default function NotebookPage() {
       .map((entry) => entry.label);
   }, [players]);
 
-  const toggleItem = (
-    value: string,
-    checked: string[],
-    setChecked: (next: string[]) => void
+  const inkColor = useMemo(() => {
+    if (!player?.alias_color) {
+      return "inherit";
+    }
+    return ALIAS_COLOR_HEX[player.alias_color] ?? "inherit";
+  }, [player?.alias_color]);
+
+  const persistNotebookChecks = async (
+    nextAliases: string[],
+    nextWeapons: string[],
+    nextLocations: string[],
+    nextMotives: string[]
   ) => {
-    if (checked.includes(value)) {
-      setChecked(checked.filter((item) => item !== value));
+    if (!code) {
       return;
     }
-    setChecked([...checked, value]);
+    const notebookChecks = buildNotebookChecks({
+      aliases: nextAliases,
+      weapons: nextWeapons,
+      locations: nextLocations,
+      motives: nextMotives,
+    });
+    setPlayer((prev) =>
+      prev ? { ...prev, notebook_checks: notebookChecks } : prev
+    );
+    const result = await updateNotebookChecks(code, playerId, notebookChecks);
+    if ("error" in result) {
+      setStatus(result.error);
+    }
   };
+
+  const handleToggle = async (
+    value: string,
+    checked: string[],
+    setChecked: (next: string[]) => void,
+    label: string,
+    category: "alias" | "weapon" | "location" | "motive"
+  ) => {
+    if (checked.includes(value)) {
+      setPendingUncheck({ value, label, category });
+      setConfirmOpen(true);
+      return;
+    }
+    const next = [...checked, value];
+    setChecked(next);
+    await persistNotebookChecks(
+      category === "alias" ? next : checkedAliases,
+      category === "weapon" ? next : checkedWeapons,
+      category === "location" ? next : checkedLocations,
+      category === "motive" ? next : checkedMotives
+    );
+  };
+
+  const handleConfirmClose = () => {
+    setConfirmOpen(false);
+    setPendingUncheck(null);
+  };
+
+  const handleConfirmUncheck = async () => {
+    if (!pendingUncheck) {
+      return;
+    }
+    const { value, category } = pendingUncheck;
+    const removeValue = (items: string[]) =>
+      items.filter((item) => item !== value);
+
+    const nextAliases =
+      category === "alias" ? removeValue(checkedAliases) : checkedAliases;
+    const nextWeapons =
+      category === "weapon" ? removeValue(checkedWeapons) : checkedWeapons;
+    const nextLocations =
+      category === "location" ? removeValue(checkedLocations) : checkedLocations;
+    const nextMotives =
+      category === "motive" ? removeValue(checkedMotives) : checkedMotives;
+
+    if (category === "alias") {
+      setCheckedAliases(nextAliases);
+    } else if (category === "weapon") {
+      setCheckedWeapons(nextWeapons);
+    } else if (category === "location") {
+      setCheckedLocations(nextLocations);
+    } else if (category === "motive") {
+      setCheckedMotives(nextMotives);
+    }
+
+    await persistNotebookChecks(
+      nextAliases,
+      nextWeapons,
+      nextLocations,
+      nextMotives
+    );
+    handleConfirmClose();
+  };
+
+  const splitColumns = (items: string[]) => {
+    const midpoint = Math.ceil(items.length / 2);
+    return [items.slice(0, midpoint), items.slice(midpoint)];
+  };
+
+  const getAutoUnderline = (items: string[], checked: string[]) => {
+    if (items.length !== 10 || checked.length !== 9) {
+      return null;
+    }
+    return items.find((item) => !checked.includes(item)) ?? null;
+  };
+
+  const aliasAutoUnderline = getAutoUnderline(aliasOptions, checkedAliases);
+  const weaponAutoUnderline = getAutoUnderline(WEAPONS, checkedWeapons);
+  const locationAutoUnderline = getAutoUnderline(LOCATIONS, checkedLocations);
+  const motiveAutoUnderline = getAutoUnderline(MOTIVES, checkedMotives);
+
+  const getDecoration = (
+    type: EvidenceItem["type"],
+    label: string,
+    checked: string[],
+    autoUnderline: string | null
+  ) => {
+    if (checked.includes(label)) {
+      if (player?.is_murderer && murdererEvidence[type].has(label)) {
+        return "underline";
+      }
+      return "scratch";
+    }
+    if (player?.is_murderer) {
+      return "none";
+    }
+    if (autoUnderline === label) {
+      return "underline";
+    }
+    return "none";
+  };
+
+  const renderItem = (
+    label: string,
+    decoration: "none" | "scratch" | "underline",
+    isChecked: boolean,
+    onToggle: () => void
+  ) => (
+    <Box
+      component="button"
+      type="button"
+      onClick={onToggle}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onToggle();
+        }
+      }}
+      aria-pressed={isChecked}
+      sx={{
+        background: "transparent",
+        border: "none",
+        color: "inherit",
+        cursor: "pointer",
+        font: "inherit",
+        fontSize: "inherit",
+        lineHeight: 1.7,
+        padding: 0,
+        textAlign: "left",
+        textDecoration:
+          decoration === "scratch"
+            ? "line-through"
+            : decoration === "underline"
+              ? "underline"
+              : "none",
+        textDecorationThickness: decoration === "underline" ? "2px" : undefined,
+        opacity: decoration === "scratch" ? 0.5 : 1,
+        width: "100%",
+      }}
+    >
+      {label}
+    </Box>
+  );
 
   if (!getSupabaseClient()) {
     return (
@@ -164,8 +378,7 @@ export default function NotebookPage() {
       sx={{
         minHeight: "100vh",
         py: { xs: 6, md: 10 },
-        backgroundImage:
-          "linear-gradient(135deg, #f6f1ea 0%, #efe5d6 45%, #e9dfce 100%)",
+        backgroundImage: "var(--map-bg)",
       }}
     >
       <Container maxWidth="lg">
@@ -178,8 +391,8 @@ export default function NotebookPage() {
               Track your clues
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Your submitted evidence is already checked. Mark additional clues
-              as you learn them.
+              Your submitted evidence is already crossed off. Mark additional
+              clues as you learn them.
             </Typography>
           </Stack>
 
@@ -190,109 +403,230 @@ export default function NotebookPage() {
             </Alert>
           )}
 
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={3}>
-              <Paper variant="outlined" sx={{ p: 3 }}>
-                <Stack spacing={1}>
-                  <Typography variant="h6">Aliases</Typography>
-                  {aliasOptions.length === 0 && (
-                    <Typography variant="body2" color="text.secondary">
-                      Aliases appear once they are locked in The Murder.
-                    </Typography>
-                  )}
-                  {aliasOptions.map((alias) => (
-                    <FormControlLabel
-                      key={alias}
-                      control={
-                        <Checkbox
-                          checked={checkedAliases.includes(alias)}
-                          onChange={() =>
-                            toggleItem(alias, checkedAliases, setCheckedAliases)
-                          }
-                        />
-                      }
-                      label={alias}
-                    />
-                  ))}
-                </Stack>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <Paper variant="outlined" sx={{ p: 3 }}>
-                <Stack spacing={1}>
-                  <Typography variant="h6">Weapons</Typography>
-                  {WEAPONS.map((weapon) => (
-                    <FormControlLabel
-                      key={weapon}
-                      control={
-                        <Checkbox
-                          checked={checkedWeapons.includes(weapon)}
-                          onChange={() =>
-                            toggleItem(
+          <Stack spacing={3}>
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 3,
+                color: inkColor,
+                fontFamily: "var(--font-handwriting), cursive",
+                fontSize: "1.3rem",
+                "& .MuiTypography-root": {
+                  fontFamily: "inherit",
+                },
+                "& .MuiTypography-h6": {
+                  fontSize: "1.5rem",
+                },
+              }}
+            >
+              <Stack spacing={1.5}>
+                <Typography variant="h6" align="center">
+                  Aliases
+                </Typography>
+                {aliasOptions.length === 0 && (
+                  <Typography variant="body2" color="text.secondary">
+                    Aliases appear once they are locked in The Murder.
+                  </Typography>
+                )}
+                {aliasOptions.length > 0 && (
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gap: 1,
+                      gridTemplateColumns: "1fr 1fr",
+                    }}
+                  >
+                    {splitColumns(aliasOptions).map((column, columnIndex) => (
+                      <Stack key={`alias-column-${columnIndex}`} spacing={0.5}>
+                        {column.map((alias) =>
+                          renderItem(
+                            alias,
+                            getDecoration(
+                              "alias",
+                              alias,
+                              checkedAliases,
+                              aliasAutoUnderline
+                            ),
+                            checkedAliases.includes(alias),
+                            () =>
+                              handleToggle(
+                                alias,
+                                checkedAliases,
+                                setCheckedAliases,
+                                alias,
+                                "alias"
+                              )
+                          )
+                        )}
+                      </Stack>
+                    ))}
+                  </Box>
+                )}
+              </Stack>
+            </Paper>
+
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 3,
+                color: inkColor,
+                fontFamily: "var(--font-handwriting), cursive",
+                fontSize: "1.3rem",
+                "& .MuiTypography-root": {
+                  fontFamily: "inherit",
+                },
+                "& .MuiTypography-h6": {
+                  fontSize: "1.5rem",
+                },
+              }}
+            >
+              <Stack spacing={1.5}>
+                <Typography variant="h6" align="center">
+                  Weapons
+                </Typography>
+                <Box
+                  sx={{
+                    display: "grid",
+                    gap: 1,
+                    gridTemplateColumns: "1fr 1fr",
+                  }}
+                >
+                  {splitColumns(WEAPONS).map((column, columnIndex) => (
+                    <Stack key={`weapon-column-${columnIndex}`} spacing={0.5}>
+                      {column.map((weapon) =>
+                        renderItem(
+                          weapon,
+                          getDecoration(
+                            "weapon",
+                            weapon,
+                            checkedWeapons,
+                            weaponAutoUnderline
+                          ),
+                          checkedWeapons.includes(weapon),
+                          () =>
+                            handleToggle(
                               weapon,
                               checkedWeapons,
-                              setCheckedWeapons
+                              setCheckedWeapons,
+                              weapon,
+                              "weapon"
                             )
-                          }
-                        />
-                      }
-                      label={weapon}
-                    />
+                        )
+                      )}
+                    </Stack>
                   ))}
-                </Stack>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <Paper variant="outlined" sx={{ p: 3 }}>
-                <Stack spacing={1}>
-                  <Typography variant="h6">Locations</Typography>
-                  {LOCATIONS.map((location) => (
-                    <FormControlLabel
-                      key={location}
-                      control={
-                        <Checkbox
-                          checked={checkedLocations.includes(location)}
-                          onChange={() =>
-                            toggleItem(
+                </Box>
+              </Stack>
+            </Paper>
+
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 3,
+                color: inkColor,
+                fontFamily: "var(--font-handwriting), cursive",
+                fontSize: "1.3rem",
+                "& .MuiTypography-root": {
+                  fontFamily: "inherit",
+                },
+                "& .MuiTypography-h6": {
+                  fontSize: "1.5rem",
+                },
+              }}
+            >
+              <Stack spacing={1.5}>
+                <Typography variant="h6" align="center">
+                  Locations
+                </Typography>
+                <Box
+                  sx={{
+                    display: "grid",
+                    gap: 1,
+                    gridTemplateColumns: "1fr 1fr",
+                  }}
+                >
+                  {splitColumns(LOCATIONS).map((column, columnIndex) => (
+                    <Stack key={`location-column-${columnIndex}`} spacing={0.5}>
+                      {column.map((location) =>
+                        renderItem(
+                          location,
+                          getDecoration(
+                            "location",
+                            location,
+                            checkedLocations,
+                            locationAutoUnderline
+                          ),
+                          checkedLocations.includes(location),
+                          () =>
+                            handleToggle(
                               location,
                               checkedLocations,
-                              setCheckedLocations
+                              setCheckedLocations,
+                              location,
+                              "location"
                             )
-                          }
-                        />
-                      }
-                      label={location}
-                    />
+                        )
+                      )}
+                    </Stack>
                   ))}
-                </Stack>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <Paper variant="outlined" sx={{ p: 3 }}>
-                <Stack spacing={1}>
-                  <Typography variant="h6">Motives</Typography>
-                  {MOTIVES.map((motive) => (
-                    <FormControlLabel
-                      key={motive}
-                      control={
-                        <Checkbox
-                          checked={checkedMotives.includes(motive)}
-                          onChange={() =>
-                            toggleItem(
+                </Box>
+              </Stack>
+            </Paper>
+
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 3,
+                color: inkColor,
+                fontFamily: "var(--font-handwriting), cursive",
+                fontSize: "1.3rem",
+                "& .MuiTypography-root": {
+                  fontFamily: "inherit",
+                },
+                "& .MuiTypography-h6": {
+                  fontSize: "1.5rem",
+                },
+              }}
+            >
+              <Stack spacing={1.5}>
+                <Typography variant="h6" align="center">
+                  Motives
+                </Typography>
+                <Box
+                  sx={{
+                    display: "grid",
+                    gap: 1,
+                    gridTemplateColumns: "1fr 1fr",
+                  }}
+                >
+                  {splitColumns(MOTIVES).map((column, columnIndex) => (
+                    <Stack key={`motive-column-${columnIndex}`} spacing={0.5}>
+                      {column.map((motive) =>
+                        renderItem(
+                          motive,
+                          getDecoration(
+                            "motive",
+                            motive,
+                            checkedMotives,
+                            motiveAutoUnderline
+                          ),
+                          checkedMotives.includes(motive),
+                          () =>
+                            handleToggle(
                               motive,
                               checkedMotives,
-                              setCheckedMotives
+                              setCheckedMotives,
+                              motive,
+                              "motive"
                             )
-                          }
-                        />
-                      }
-                      label={motive}
-                    />
+                        )
+                      )}
+                    </Stack>
                   ))}
-                </Stack>
-              </Paper>
-            </Grid>
-          </Grid>
+                </Box>
+              </Stack>
+            </Paper>
+          </Stack>
 
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
             <Button
@@ -302,20 +636,66 @@ export default function NotebookPage() {
               Back to overview
             </Button>
             <Button
-              variant="text"
-              onClick={() => router.push(`/investigation/${code}/murder`)}
-            >
-              Return to The Murder
-            </Button>
-            <Button
-              variant="text"
+              variant="outlined"
               onClick={() => router.push(`/investigation/${code}/crime-computer`)}
+              sx={{
+                bgcolor: "common.white",
+                "&:hover": {
+                  bgcolor: "grey.100",
+                },
+              }}
             >
               Crime Computer
             </Button>
           </Stack>
         </Stack>
       </Container>
+
+      <Dialog
+        open={confirmOpen}
+        onClose={handleConfirmClose}
+        PaperProps={{
+          sx: {
+            backgroundColor: "rgba(250, 244, 232, 0.98)",
+            border: "1px solid",
+            borderColor: "secondary.main",
+            boxShadow: "0 24px 48px rgba(33, 24, 14, 0.35)",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontFamily: "var(--font-typewriter), serif",
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+          }}
+        >
+          Scotland Yard Notice
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText
+            sx={{
+              fontFamily: "var(--font-typewriter), serif",
+              color: "text.primary",
+            }}
+          >
+            Rewrite "{pendingUncheck?.label}" ?<br />
+            Scotland Yard cautions against editing submitted evidence.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button variant="outlined" onClick={handleConfirmClose}>
+            Keep Scribble
+          </Button>
+          <Button
+            variant="contained"
+            color="secondary"
+            onClick={handleConfirmUncheck}
+          >
+            Rewrite
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

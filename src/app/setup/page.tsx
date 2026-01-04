@@ -44,8 +44,7 @@ export default function SetupPage() {
       sx={{
         minHeight: "100vh",
         py: { xs: 6, md: 10 },
-        backgroundImage:
-          "radial-gradient(circle at top right, #ffffff 0%, #f0e6d6 50%, #e5dccb 100%)",
+        backgroundImage: "var(--map-bg)",
       }}
     >
       <Container maxWidth="md">

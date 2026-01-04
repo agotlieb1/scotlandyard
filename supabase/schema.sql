@@ -15,6 +15,7 @@ create table if not exists investigation_players (
   identity text,
   is_murderer boolean not null default false,
   evidence jsonb,
+  notebook_checks jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -53,6 +54,38 @@ create table if not exists investigation_accusations (
   created_at timestamptz not null default now()
 );
 
+alter table investigations
+  add column if not exists created_at timestamptz not null default now();
+
+alter table investigation_players
+  add column if not exists alias_title text,
+  add column if not exists alias_color text,
+  add column if not exists alias_locked boolean not null default false,
+  add column if not exists identity text,
+  add column if not exists is_murderer boolean not null default false,
+  add column if not exists evidence jsonb,
+  add column if not exists notebook_checks jsonb,
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
+
+alter table investigation_case_files
+  add column if not exists murderer_alias text,
+  add column if not exists weapon text,
+  add column if not exists location text,
+  add column if not exists motive text,
+  add column if not exists created_at timestamptz not null default now();
+
+alter table investigation_accusations
+  add column if not exists accuser_player_id text,
+  add column if not exists accused_alias text,
+  add column if not exists accused_identity text,
+  add column if not exists weapon text,
+  add column if not exists location text,
+  add column if not exists motive text,
+  add column if not exists is_correct boolean,
+  add column if not exists message text,
+  add column if not exists created_at timestamptz not null default now();
+
 create index if not exists investigation_accusations_by_code
   on investigation_accusations (investigation_code, created_at desc);
 
@@ -61,32 +94,82 @@ alter table investigation_players enable row level security;
 alter table investigation_case_files enable row level security;
 alter table investigation_accusations enable row level security;
 
-create policy "Public investigations read" on investigations
-  for select using (true);
+do $$
+begin
+  create policy "Public investigations read" on investigations
+    for select using (true);
+exception
+  when duplicate_object then null;
+end $$;
 
-create policy "Public investigations insert" on investigations
-  for insert with check (true);
+do $$
+begin
+  create policy "Public investigations insert" on investigations
+    for insert with check (true);
+exception
+  when duplicate_object then null;
+end $$;
 
-create policy "Public players read" on investigation_players
-  for select using (true);
+do $$
+begin
+  create policy "Public players read" on investigation_players
+    for select using (true);
+exception
+  when duplicate_object then null;
+end $$;
 
-create policy "Public players insert" on investigation_players
-  for insert with check (true);
+do $$
+begin
+  create policy "Public players insert" on investigation_players
+    for insert with check (true);
+exception
+  when duplicate_object then null;
+end $$;
 
-create policy "Public players update" on investigation_players
-  for update using (true) with check (true);
+do $$
+begin
+  create policy "Public players update" on investigation_players
+    for update using (true) with check (true);
+exception
+  when duplicate_object then null;
+end $$;
 
-create policy "Public case files read" on investigation_case_files
-  for select using (true);
+do $$
+begin
+  create policy "Public case files read" on investigation_case_files
+    for select using (true);
+exception
+  when duplicate_object then null;
+end $$;
 
-create policy "Public case files insert" on investigation_case_files
-  for insert with check (true);
+do $$
+begin
+  create policy "Public case files insert" on investigation_case_files
+    for insert with check (true);
+exception
+  when duplicate_object then null;
+end $$;
 
-create policy "Public case files update" on investigation_case_files
-  for update using (true) with check (true);
+do $$
+begin
+  create policy "Public case files update" on investigation_case_files
+    for update using (true) with check (true);
+exception
+  when duplicate_object then null;
+end $$;
 
-create policy "Public accusations read" on investigation_accusations
-  for select using (true);
+do $$
+begin
+  create policy "Public accusations read" on investigation_accusations
+    for select using (true);
+exception
+  when duplicate_object then null;
+end $$;
 
-create policy "Public accusations insert" on investigation_accusations
-  for insert with check (true);
+do $$
+begin
+  create policy "Public accusations insert" on investigation_accusations
+    for insert with check (true);
+exception
+  when duplicate_object then null;
+end $$;

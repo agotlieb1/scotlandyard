@@ -7,7 +7,6 @@ import {
   Container,
   FormControl,
   FormHelperText,
-  Grid,
   InputLabel,
   MenuItem,
   Paper,
@@ -15,7 +14,8 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { useEffect, useMemo, useState } from "react";
+import type { SxProps, Theme } from "@mui/material/styles";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import {
@@ -42,6 +42,153 @@ import type {
   InvestigationPlayer,
 } from "@/lib/types";
 
+type TextSegment = {
+  text: string;
+  sx?: SxProps<Theme>;
+};
+
+type TextLine = {
+  segments: TextSegment[];
+  variant: "body2" | "subtitle2";
+  sx?: SxProps<Theme>;
+};
+
+type LogEntryProps = {
+  announcement: InvestigationAccusation;
+  accuserName: string;
+  accusationText: string;
+  isNewest: boolean;
+};
+
+const TYPE_SPEED_MS = 24;
+const LOG_PREVIEW_COUNT = 6;
+
+const useTypewriter = (length: number, active: boolean, key: string) => {
+  const [visibleCount, setVisibleCount] = useState(active ? 0 : length);
+
+  useEffect(() => {
+    if (!active) {
+      setVisibleCount(length);
+      return;
+    }
+
+    setVisibleCount(0);
+    let current = 0;
+    const interval = window.setInterval(() => {
+      current += 1;
+      if (current >= length) {
+        setVisibleCount(length);
+        window.clearInterval(interval);
+      } else {
+        setVisibleCount(current);
+      }
+    }, TYPE_SPEED_MS);
+
+    return () => window.clearInterval(interval);
+  }, [active, key, length]);
+
+  return visibleCount;
+};
+
+const renderSegments = (segments: TextSegment[], visibleCount: number) => {
+  let remaining = visibleCount;
+  const rendered: JSX.Element[] = [];
+  segments.forEach((segment, index) => {
+    if (remaining <= 0) {
+      return;
+    }
+    const slice = segment.text.slice(0, remaining);
+    remaining -= slice.length;
+    rendered.push(
+      <Box component="span" key={`${segment.text}-${index}`} sx={segment.sx}>
+        {slice}
+      </Box>
+    );
+  });
+  return { rendered, consumed: visibleCount - remaining };
+};
+
+const LogEntry = ({
+  announcement,
+  accuserName,
+  accusationText,
+  isNewest,
+}: LogEntryProps) => {
+  const lines = useMemo<TextLine[]>(() => {
+    if (announcement.message === "REVEAL") {
+      return [
+        {
+          variant: "body2",
+          segments: [
+            { text: "Scotland Yard reports " },
+            { text: announcement.accused_alias, sx: { fontWeight: 700 } },
+            { text: " has been " },
+            { text: "EXPOSED", sx: { color: "#7c3aed", fontWeight: 700 } },
+            { text: " as " },
+            { text: announcement.accused_identity, sx: { fontWeight: 700 } },
+            { text: ", and has been " },
+            { text: "DISCREDITED!", sx: { color: "#2563eb", fontWeight: 700 } },
+          ],
+        },
+      ];
+    }
+
+    return [
+      {
+        variant: "body2",
+        segments: [{ text: "Scotland Yard reports the Accusation:" }],
+      },
+      {
+        variant: "body2",
+        sx: { fontStyle: "italic" },
+        segments: [{ text: `${accusationText}.` }],
+      },
+      {
+        variant: "body2",
+        segments: [{ text: `by ${accuserName} is...` }],
+      },
+      {
+        variant: "subtitle2",
+        sx: {
+          fontWeight: 700,
+          color: announcement.is_correct ? "success.main" : "error.main",
+        },
+        segments: [
+          { text: announcement.is_correct ? "CORRECT!" : "INCORRECT!" },
+        ],
+      },
+    ];
+  }, [accusationText, accuserName, announcement]);
+
+  const totalLength = useMemo(
+    () =>
+      lines.reduce(
+        (sum, line) =>
+          sum +
+          line.segments.reduce((lineSum, segment) => lineSum + segment.text.length, 0),
+        0
+      ),
+    [lines]
+  );
+
+  const visibleCount = useTypewriter(totalLength, isNewest, announcement.id);
+  let remaining = visibleCount;
+
+  return (
+    <>
+      {lines.map((line, index) => {
+        const { rendered, consumed } = renderSegments(line.segments, remaining);
+        remaining -= consumed;
+        return (
+          <Typography key={`${announcement.id}-${index}`} variant={line.variant} sx={line.sx}>
+            {rendered}
+          </Typography>
+        );
+      })}
+    </>
+  );
+};
+
 export default function CrimeComputerPage() {
   const router = useRouter();
   const params = useParams<{ code?: string }>();
@@ -65,6 +212,8 @@ export default function CrimeComputerPage() {
   const [motiveChoice, setMotiveChoice] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showFullLog, setShowFullLog] = useState(false);
+  const logRef = useRef<HTMLDivElement | null>(null);
 
   const isMurdererAccusation = identityChoice === "The Murderer";
   const aliasOptions = useMemo(() => {
@@ -84,6 +233,29 @@ export default function CrimeComputerPage() {
       )
       .map((entry) => entry.label);
   }, [players]);
+
+  const accuserLabel = (playerIdValue: string) => {
+    const accuser = players.find(
+      (entry) => entry.player_id === playerIdValue && entry.alias_locked
+    );
+    const alias = accuser
+      ? formatAlias(accuser.alias_title, accuser.alias_color)
+      : "";
+    if (alias) {
+      return alias;
+    }
+    return `Player ${playerIdValue.slice(-4)}`;
+  };
+
+  const formatAccusation = (accusation: InvestigationAccusation) => {
+    const base = `${accusation.accused_alias} is ${accusation.accused_identity}`;
+    if (accusation.accused_identity === "The Murderer") {
+      return `${base} with ${accusation.weapon ?? "?"} in ${
+        accusation.location ?? "?"
+      } for ${accusation.motive ?? "?"}`;
+    }
+    return base;
+  };
 
   useEffect(() => {
     let isActive = true;
@@ -113,14 +285,6 @@ export default function CrimeComputerPage() {
         setCaseFile(caseResult.data);
       }
 
-      const accusationsResult = await fetchAccusations(code, 6);
-      if (isActive) {
-        if ("error" in accusationsResult) {
-          setStatus(accusationsResult.error);
-        } else {
-          setAnnouncements(accusationsResult.data);
-        }
-      }
     };
 
     load();
@@ -129,6 +293,33 @@ export default function CrimeComputerPage() {
       isActive = false;
     };
   }, [code, playerId]);
+
+  useEffect(() => {
+    let isActive = true;
+    const loadLog = async () => {
+      if (!code) {
+        return;
+      }
+      const accusationsResult = await fetchAccusations(
+        code,
+        showFullLog ? undefined : LOG_PREVIEW_COUNT
+      );
+      if (!isActive) {
+        return;
+      }
+      if ("error" in accusationsResult) {
+        setStatus(accusationsResult.error);
+      } else {
+        setAnnouncements(accusationsResult.data);
+      }
+    };
+
+    loadLog();
+
+    return () => {
+      isActive = false;
+    };
+  }, [code, showFullLog]);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -151,7 +342,12 @@ export default function CrimeComputerPage() {
           if (!next) {
             return;
           }
-          setAnnouncements((prev) => [next, ...prev].slice(0, 6));
+          setAnnouncements((prev) => {
+            const nextAnnouncements = [next, ...prev];
+            return showFullLog
+              ? nextAnnouncements
+              : nextAnnouncements.slice(0, LOG_PREVIEW_COUNT);
+          });
         }
       )
       .subscribe();
@@ -204,7 +400,7 @@ export default function CrimeComputerPage() {
       supabase.removeChannel(playersChannel);
       supabase.removeChannel(caseFileChannel);
     };
-  }, [code]);
+  }, [code, showFullLog]);
 
   const handleAccuse = async () => {
     if (!code) {
@@ -219,7 +415,7 @@ export default function CrimeComputerPage() {
     setIsSubmitting(true);
 
     let isCorrect = false;
-    let message = "Scotland Yard reports the accusation is incorrect.";
+    let message = "ACCUSATION";
 
     if (identityChoice === "The Murderer") {
       if (!caseFile) {
@@ -237,9 +433,7 @@ export default function CrimeComputerPage() {
         caseFile.weapon === weaponChoice &&
         caseFile.location === locationChoice &&
         caseFile.motive === motiveChoice;
-      message = isCorrect
-        ? `Scotland Yard confirms the murderer: ${aliasChoice}. Case closed.`
-        : "Scotland Yard reports the accusation is incorrect.";
+      message = "ACCUSATION";
     } else {
       const accused = players.find(
         (entry) =>
@@ -247,9 +441,7 @@ export default function CrimeComputerPage() {
           formatAlias(entry.alias_title, entry.alias_color) === aliasChoice
       );
       isCorrect = Boolean(accused && accused.identity === identityChoice);
-      message = isCorrect
-        ? `Scotland Yard confirms ${aliasChoice} has been EXPOSED as the ${identityChoice}.`
-        : "Scotland Yard reports the accusation is incorrect.";
+      message = "ACCUSATION";
     }
 
     const result = await createAccusation(code, {
@@ -270,7 +462,25 @@ export default function CrimeComputerPage() {
       return;
     }
 
+    if (isCorrect) {
+      const revealResult = await createAccusation(code, {
+        accuser_player_id: playerId,
+        accused_alias: aliasChoice,
+        accused_identity: identityChoice,
+        weapon: null,
+        location: null,
+        motive: null,
+        is_correct: true,
+        message: "REVEAL",
+      });
+      if ("error" in revealResult) {
+        setStatus(revealResult.error);
+        return;
+      }
+    }
+
     setStatus(null);
+    logRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   if (!getSupabaseClient()) {
@@ -288,8 +498,7 @@ export default function CrimeComputerPage() {
       sx={{
         minHeight: "100vh",
         py: { xs: 6, md: 10 },
-        backgroundImage:
-          "linear-gradient(135deg, #f6f1ea 0%, #efe5d6 45%, #e9dfce 100%)",
+        backgroundImage: "var(--map-bg)",
       }}
     >
       <Container maxWidth="lg">
@@ -309,147 +518,173 @@ export default function CrimeComputerPage() {
 
           {status && <Alert severity="warning">{status}</Alert>}
 
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={7}>
-              <Paper variant="outlined" sx={{ p: 3 }}>
-                <Stack spacing={2}>
-                  <Typography variant="h6">Accusation</Typography>
-                  <FormControl fullWidth>
-                    <InputLabel id="identity-label">Secret identity</InputLabel>
-                    <Select
-                      labelId="identity-label"
-                      label="Secret identity"
-                      value={identityChoice}
-                      onChange={(event) =>
-                        setIdentityChoice(event.target.value)
-                      }
-                    >
-                      {IDENTITIES.map((identity) => (
-                        <MenuItem key={identity} value={identity}>
-                          {identity}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  <FormControl fullWidth>
-                    <InputLabel id="alias-label">Alias</InputLabel>
-                    <Select
-                      labelId="alias-label"
-                      label="Alias"
-                      value={aliasChoice}
-                      onChange={(event) => setAliasChoice(event.target.value)}
-                    >
-                      {aliasOptions.map((alias) => (
-                        <MenuItem key={alias} value={alias}>
-                          {alias}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    <FormHelperText>
-                      Aliases appear once they are locked in The Murder.
-                    </FormHelperText>
-                  </FormControl>
+          <Stack spacing={3}>
+            <Paper variant="outlined" sx={{ p: 3 }}>
+              <Stack spacing={2}>
+                <Typography variant="h6">Accusation</Typography>
+                <FormControl fullWidth>
+                  <InputLabel id="alias-label">Alias</InputLabel>
+                  <Select
+                    labelId="alias-label"
+                    label="Alias"
+                    value={aliasChoice}
+                    onChange={(event) => setAliasChoice(event.target.value)}
+                  >
+                    {aliasOptions.map((alias) => (
+                      <MenuItem key={alias} value={alias}>
+                        {alias}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  <FormHelperText>
+                    Aliases appear once they are locked in The Murder.
+                  </FormHelperText>
+                </FormControl>
+                <FormControl fullWidth>
+                  <InputLabel id="identity-label">Secret identity</InputLabel>
+                  <Select
+                    labelId="identity-label"
+                    label="Secret identity"
+                    value={identityChoice}
+                    onChange={(event) => setIdentityChoice(event.target.value)}
+                  >
+                    {IDENTITIES.map((identity) => (
+                      <MenuItem key={identity} value={identity}>
+                        {identity}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
 
-                  {isMurdererAccusation && (
-                    <Stack spacing={2}>
-                      <FormHelperText>
-                        Murderer accusations require the full case file.
-                      </FormHelperText>
-                      <FormControl fullWidth>
-                        <InputLabel id="weapon-label">Weapon</InputLabel>
-                        <Select
-                          labelId="weapon-label"
-                          label="Weapon"
-                          value={weaponChoice}
-                          onChange={(event) =>
-                            setWeaponChoice(event.target.value)
-                          }
-                        >
-                          {WEAPONS.map((weapon) => (
-                            <MenuItem key={weapon} value={weapon}>
-                              {weapon}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                      <FormControl fullWidth>
-                        <InputLabel id="location-label">Location</InputLabel>
-                        <Select
-                          labelId="location-label"
-                          label="Location"
-                          value={locationChoice}
-                          onChange={(event) =>
-                            setLocationChoice(event.target.value)
-                          }
-                        >
-                          {LOCATIONS.map((location) => (
-                            <MenuItem key={location} value={location}>
-                              {location}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                      <FormControl fullWidth>
-                        <InputLabel id="motive-label">Motive</InputLabel>
-                        <Select
-                          labelId="motive-label"
-                          label="Motive"
-                          value={motiveChoice}
-                          onChange={(event) =>
-                            setMotiveChoice(event.target.value)
-                          }
-                        >
-                          {MOTIVES.map((motive) => (
-                            <MenuItem key={motive} value={motive}>
-                              {motive}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Stack>
-                  )}
-                  <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                    <Button
-                      variant="contained"
-                      onClick={handleAccuse}
-                      disabled={isSubmitting}
-                    >
-                      Submit accusation
-                    </Button>
-                    <Button
-                      variant="text"
-                      onClick={() => router.push(`/investigation/${code}`)}
-                    >
-                      Back to overview
-                    </Button>
+                {isMurdererAccusation && (
+                  <Stack spacing={2}>
+                    <FormHelperText>
+                      Murderer accusations require the full case file.
+                    </FormHelperText>
+                    <FormControl fullWidth>
+                      <InputLabel id="weapon-label">Weapon</InputLabel>
+                      <Select
+                        labelId="weapon-label"
+                        label="Weapon"
+                        value={weaponChoice}
+                        onChange={(event) => setWeaponChoice(event.target.value)}
+                      >
+                        {WEAPONS.map((weapon) => (
+                          <MenuItem key={weapon} value={weapon}>
+                            {weapon}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <FormControl fullWidth>
+                      <InputLabel id="location-label">Location</InputLabel>
+                      <Select
+                        labelId="location-label"
+                        label="Location"
+                        value={locationChoice}
+                        onChange={(event) =>
+                          setLocationChoice(event.target.value)
+                        }
+                      >
+                        {LOCATIONS.map((location) => (
+                          <MenuItem key={location} value={location}>
+                            {location}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <FormControl fullWidth>
+                      <InputLabel id="motive-label">Motive</InputLabel>
+                      <Select
+                        labelId="motive-label"
+                        label="Motive"
+                        value={motiveChoice}
+                        onChange={(event) => setMotiveChoice(event.target.value)}
+                      >
+                        {MOTIVES.map((motive) => (
+                          <MenuItem key={motive} value={motive}>
+                            {motive}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
                   </Stack>
+                )}
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                  <Button
+                    variant="contained"
+                    onClick={handleAccuse}
+                    disabled={isSubmitting}
+                  >
+                    Submit accusation
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="info"
+                    onClick={() =>
+                      router.push(`/investigation/${code}/notebook`)
+                    }
+                  >
+                    Open The Notebook
+                  </Button>
+                  <Button
+                    variant="text"
+                    onClick={() => router.push(`/investigation/${code}`)}
+                  >
+                    Back to overview
+                  </Button>
                 </Stack>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} md={5}>
-              <Paper variant="outlined" sx={{ p: 3 }}>
-                <Stack spacing={2}>
+              </Stack>
+            </Paper>
+            <Paper variant="outlined" sx={{ p: 3 }} ref={logRef}>
+              <Stack spacing={2}>
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1}
+                  alignItems={{ xs: "flex-start", sm: "center" }}
+                  justifyContent="space-between"
+                >
                   <Typography variant="h6">Scotland Yard log</Typography>
-                  {announcements.length === 0 && (
-                    <Typography variant="body2" color="text.secondary">
-                      No accusations yet.
-                    </Typography>
-                  )}
-                  {announcements.map((announcement) => (
-                    <Paper
-                      key={announcement.id}
-                      variant="outlined"
-                      sx={{ p: 2, bgcolor: announcement.is_correct ? "action.hover" : "transparent" }}
-                    >
-                      <Typography variant="body2">
-                        {announcement.message}
-                      </Typography>
-                    </Paper>
-                  ))}
+                  <Button
+                    variant="text"
+                    size="small"
+                    onClick={() => setShowFullLog((prev) => !prev)}
+                  >
+                    {showFullLog ? "Show recent only" : "Show full log"}
+                  </Button>
                 </Stack>
-              </Paper>
-            </Grid>
-          </Grid>
+                {announcements.length === 0 && (
+                  <Typography variant="body2" color="text.secondary">
+                    No accusations yet.
+                  </Typography>
+                )}
+                {announcements.map((announcement, index) => (
+                  <Paper
+                    key={announcement.id}
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      bgcolor: announcement.is_correct
+                        ? "action.hover"
+                        : "transparent",
+                      borderColor: index === 0 ? "#d97706" : "divider",
+                      borderWidth: index === 0 ? 2 : 1,
+                      boxShadow: index === 0 ? "0 0 0 2px #fbbf24" : "none",
+                    }}
+                  >
+                    <LogEntry
+                      announcement={announcement}
+                      accuserName={accuserLabel(
+                        announcement.accuser_player_id
+                      )}
+                      accusationText={formatAccusation(announcement)}
+                      isNewest={index === 0}
+                    />
+                  </Paper>
+                ))}
+              </Stack>
+            </Paper>
+          </Stack>
         </Stack>
       </Container>
     </Box>

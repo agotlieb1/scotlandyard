@@ -60,8 +60,7 @@ export default function Home() {
         display: "flex",
         alignItems: "center",
         py: { xs: 6, md: 10 },
-        backgroundImage:
-          "radial-gradient(circle at top left, #ffffff 0%, #f3ede3 50%, #ece4d6 100%)",
+        backgroundImage: "var(--map-bg)",
       }}
     >
       <Container maxWidth="md">
