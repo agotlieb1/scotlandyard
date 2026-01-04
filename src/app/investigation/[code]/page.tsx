@@ -54,7 +54,9 @@ export default function InvestigationPage() {
       const investigationResult = await fetchInvestigation(code);
       if ("error" in investigationResult) {
         if (isActive) {
-          setStatus(investigationResult.error);
+          setStatus(
+            investigationResult.error ?? "Unable to load the investigation."
+          );
           setIsLoading(false);
         }
         return;
@@ -63,14 +65,14 @@ export default function InvestigationPage() {
       const playerResult = await upsertPlayer(code, playerId);
       if (isActive) {
         if ("error" in playerResult) {
-          setStatus(playerResult.error);
+          setStatus(playerResult.error ?? "Unable to load player details.");
         } else {
           setPlayer(playerResult.data);
         }
       }
 
       const caseResult = await fetchCaseFile(code);
-      if (isActive && "data" in caseResult) {
+      if (isActive && "data" in caseResult && caseResult.data) {
         setCaseFile(caseResult.data);
       }
 
@@ -122,7 +124,7 @@ export default function InvestigationPage() {
       await navigator.clipboard.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch (error) {
+    } catch {
       setStatus("Unable to copy the investigation code.");
     }
   };
@@ -219,9 +221,9 @@ export default function InvestigationPage() {
             <Stack spacing={2}>
               <Typography variant="h6">Next steps</Typography>
               <Typography variant="body2" color="text.secondary">
-                Visit The Murder to claim your alias, confirm your secret
-                identity, and submit evidence. Use The Notebook to track clues
-                and the Crime Computer when you are ready to accuse.
+                Visit The Casefile to claim your alias, confirm your secret
+                identity, and submit initial evidence. Use The Notebook to track clues
+                and the Crime Computer when you are ready to make an accusation.
               </Typography>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                 <Button

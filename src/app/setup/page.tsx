@@ -32,7 +32,7 @@ export default function SetupPage() {
     setIsCreating(false);
 
     if ("error" in result) {
-      setStatus(result.error);
+      setStatus(result.error ?? null);
       return;
     }
 

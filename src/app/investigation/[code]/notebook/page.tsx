@@ -189,12 +189,47 @@ export default function NotebookPage() {
       .map((entry) => entry.label);
   }, [players]);
 
-  const inkColor = useMemo(() => {
+  const notebookInk = useMemo(() => {
     if (!player?.alias_color) {
-      return "inherit";
+      return {
+        color: "inherit",
+        shadow: "none",
+      };
     }
-    return ALIAS_COLOR_HEX[player.alias_color] ?? "inherit";
+
+    if (player.alias_color === "Gold") {
+      return {
+        color: "#7a5a00",
+        shadow: "0 1px 2px rgba(35, 26, 14, 0.35)",
+      };
+    }
+
+    return {
+      color: ALIAS_COLOR_HEX[player.alias_color] ?? "inherit",
+      shadow: "0 1px 2px rgba(35, 26, 14, 0.22)",
+    };
   }, [player?.alias_color]);
+
+  const notebookPaperSx = useMemo(
+    () => ({
+      p: 3,
+      bgcolor: "#fff9f0",
+      color: notebookInk.color,
+      fontFamily: "var(--font-handwriting), cursive",
+      fontSize: "1.3rem",
+      "& .MuiTypography-root": {
+        fontFamily: "inherit",
+        textShadow: notebookInk.shadow,
+      },
+      "& .MuiTypography-h6": {
+        fontSize: "1.5rem",
+      },
+      "& button": {
+        textShadow: notebookInk.shadow,
+      },
+    }),
+    [notebookInk]
+  );
 
   const persistNotebookChecks = async (
     nextAliases: string[],
@@ -406,18 +441,7 @@ export default function NotebookPage() {
           <Stack spacing={3}>
             <Paper
               variant="outlined"
-              sx={{
-                p: 3,
-                color: inkColor,
-                fontFamily: "var(--font-handwriting), cursive",
-                fontSize: "1.3rem",
-                "& .MuiTypography-root": {
-                  fontFamily: "inherit",
-                },
-                "& .MuiTypography-h6": {
-                  fontSize: "1.5rem",
-                },
-              }}
+              sx={notebookPaperSx}
             >
               <Stack spacing={1.5}>
                 <Typography variant="h6" align="center">
@@ -467,18 +491,7 @@ export default function NotebookPage() {
 
             <Paper
               variant="outlined"
-              sx={{
-                p: 3,
-                color: inkColor,
-                fontFamily: "var(--font-handwriting), cursive",
-                fontSize: "1.3rem",
-                "& .MuiTypography-root": {
-                  fontFamily: "inherit",
-                },
-                "& .MuiTypography-h6": {
-                  fontSize: "1.5rem",
-                },
-              }}
+              sx={notebookPaperSx}
             >
               <Stack spacing={1.5}>
                 <Typography variant="h6" align="center">
@@ -521,18 +534,7 @@ export default function NotebookPage() {
 
             <Paper
               variant="outlined"
-              sx={{
-                p: 3,
-                color: inkColor,
-                fontFamily: "var(--font-handwriting), cursive",
-                fontSize: "1.3rem",
-                "& .MuiTypography-root": {
-                  fontFamily: "inherit",
-                },
-                "& .MuiTypography-h6": {
-                  fontSize: "1.5rem",
-                },
-              }}
+              sx={notebookPaperSx}
             >
               <Stack spacing={1.5}>
                 <Typography variant="h6" align="center">
@@ -575,18 +577,7 @@ export default function NotebookPage() {
 
             <Paper
               variant="outlined"
-              sx={{
-                p: 3,
-                color: inkColor,
-                fontFamily: "var(--font-handwriting), cursive",
-                fontSize: "1.3rem",
-                "& .MuiTypography-root": {
-                  fontFamily: "inherit",
-                },
-                "& .MuiTypography-h6": {
-                  fontSize: "1.5rem",
-                },
-              }}
+              sx={notebookPaperSx}
             >
               <Stack spacing={1.5}>
                 <Typography variant="h6" align="center">

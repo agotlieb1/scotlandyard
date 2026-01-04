@@ -295,11 +295,8 @@ export default function MurderSetupPage() {
       if (exists) {
         return prev.filter((entry) => entry.key !== key);
       }
-      if (prev.length >= 4) {
-        setStatus("Select exactly four evidence items.");
-        return prev;
-      }
-      return [...prev, { ...item, key }];
+      const withoutType = prev.filter((entry) => entry.type !== item.type);
+      return [...withoutType, { ...item, key }];
     });
   };
 
@@ -373,13 +370,19 @@ export default function MurderSetupPage() {
       return;
     }
 
-    if (selectedEvidence.length !== 4) {
+    if (selectedEvidence.length !== 3) {
       setIsSaving(false);
-      setStatus("Select exactly four evidence items.");
+      setStatus("Select one weapon, one location, and one motive.");
       return;
     }
 
     const evidence = selectedEvidence.map(({ key, ...item }) => item);
+    const evidenceTypes = new Set(evidence.map((item) => item.type));
+    if (evidenceTypes.size !== 3) {
+      setIsSaving(false);
+      setStatus("Select one weapon, one location, and one motive.");
+      return;
+    }
     const hasDuplicates = evidence.some((item) =>
       usedEvidence.has(buildKey(item))
     );
@@ -604,10 +607,10 @@ export default function MurderSetupPage() {
               ) : (
                 <Stack spacing={2}>
                   <Typography variant="body2" color="text.secondary">
-                    Select any four items from weapons, locations, and motives.
+                    Select one item from each category.
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Selected {selectedEvidence.length} / 4
+                    Selected {selectedEvidence.length} / 3
                   </Typography>
                   <Grid container spacing={2}>
                     {[{ label: "Weapons", items: WEAPONS, type: "weapon" },
