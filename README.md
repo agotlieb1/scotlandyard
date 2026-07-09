@@ -38,6 +38,18 @@ Run the SQL in `supabase/schema.sql` in your Supabase project. This creates:
 
 The SQL enables open RLS policies for MVP testing. Tighten these before shipping.
 
+## Deploy to Vercel
+
+Vercel auto-detects Next.js, so no extra config is needed. Before the first
+deploy, add both env vars in **Project Settings → Environment Variables**:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+These are `NEXT_PUBLIC_*` values, so they are inlined at build time — set them
+before deploying (or redeploy after adding them). Without them the app still
+builds and runs, but every page shows a "Supabase is not configured" notice.
+
 ## Project layout
 
 - `src/app` Next.js App Router pages

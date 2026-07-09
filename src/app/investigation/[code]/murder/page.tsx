@@ -81,7 +81,7 @@ export default function MurderSetupPage() {
       const playerResult = await upsertPlayer(code, playerId);
       if (isActive) {
         if ("error" in playerResult) {
-          setStatus(playerResult.error);
+          setStatus(playerResult.error ?? null);
         } else {
           setPlayer(playerResult.data);
         }
@@ -90,7 +90,7 @@ export default function MurderSetupPage() {
       const playersResult = await fetchPlayers(code);
       if (isActive) {
         if ("error" in playersResult) {
-          setStatus(playersResult.error);
+          setStatus(playersResult.error ?? null);
         } else {
           setPlayers(playersResult.data);
         }
@@ -238,7 +238,7 @@ export default function MurderSetupPage() {
       if (result.code === "23505") {
         setStatus("That color is already taken.");
       } else {
-        setStatus(result.error);
+        setStatus(result.error ?? null);
       }
       return;
     }
@@ -273,7 +273,7 @@ export default function MurderSetupPage() {
       if (result.code === "23505") {
         setStatus("That identity is already taken.");
       } else {
-        setStatus(result.error);
+        setStatus(result.error ?? null);
       }
       return;
     }
@@ -348,7 +348,7 @@ export default function MurderSetupPage() {
       const evidenceResult = await submitEvidence(code, playerId, evidence);
       if ("error" in evidenceResult) {
         setIsSaving(false);
-        setStatus(evidenceResult.error);
+        setStatus(evidenceResult.error ?? null);
         return;
       }
 
@@ -361,7 +361,7 @@ export default function MurderSetupPage() {
       setIsSaving(false);
 
       if ("error" in caseResult) {
-        setStatus(caseResult.error);
+        setStatus(caseResult.error ?? null);
         return;
       }
 
@@ -395,7 +395,7 @@ export default function MurderSetupPage() {
     setIsSaving(false);
 
     if ("error" in evidenceResult) {
-      setStatus(evidenceResult.error);
+      setStatus(evidenceResult.error ?? null);
       return;
     }
 
@@ -439,7 +439,7 @@ export default function MurderSetupPage() {
           {status && <Alert severity="warning">{status}</Alert>}
 
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Paper variant="outlined" sx={{ p: 3 }}>
                 <Stack spacing={2}>
                   <Typography variant="h6">Alias</Typography>
@@ -489,7 +489,7 @@ export default function MurderSetupPage() {
               </Paper>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Paper variant="outlined" sx={{ p: 3 }}>
                 <Stack spacing={2}>
                   <Typography variant="h6">Secret identity</Typography>
@@ -542,7 +542,7 @@ export default function MurderSetupPage() {
                       "Lock your alias first."}
                   </Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={12} md={4}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                       <FormControl fullWidth>
                         <InputLabel id="weapon-label">Weapon</InputLabel>
                         <Select
@@ -562,7 +562,7 @@ export default function MurderSetupPage() {
                         </Select>
                       </FormControl>
                     </Grid>
-                    <Grid item xs={12} md={4}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                       <FormControl fullWidth>
                         <InputLabel id="location-label">Location</InputLabel>
                         <Select
@@ -582,7 +582,7 @@ export default function MurderSetupPage() {
                         </Select>
                       </FormControl>
                     </Grid>
-                    <Grid item xs={12} md={4}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                       <FormControl fullWidth>
                         <InputLabel id="motive-label">Motive</InputLabel>
                         <Select
@@ -617,7 +617,7 @@ export default function MurderSetupPage() {
                       { label: "Locations", items: LOCATIONS, type: "location" },
                       { label: "Motives", items: MOTIVES, type: "motive" }].map(
                       (group) => (
-                        <Grid item xs={12} md={4} key={group.label}>
+                        <Grid size={{ xs: 12, md: 4 }} key={group.label}>
                           <Stack spacing={1}>
                             <Typography variant="subtitle2">
                               {group.label}

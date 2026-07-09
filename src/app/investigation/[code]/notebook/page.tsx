@@ -51,10 +51,10 @@ const buildNotebookChecks = ({
   locations: string[];
   motives: string[];
 }): EvidenceItem[] => [
-  ...aliases.map((value) => ({ type: "alias", value })),
-  ...weapons.map((value) => ({ type: "weapon", value })),
-  ...locations.map((value) => ({ type: "location", value })),
-  ...motives.map((value) => ({ type: "motive", value })),
+  ...aliases.map((value) => ({ type: "alias" as const, value })),
+  ...weapons.map((value) => ({ type: "weapon" as const, value })),
+  ...locations.map((value) => ({ type: "location" as const, value })),
+  ...motives.map((value) => ({ type: "motive" as const, value })),
 ];
 
 export default function NotebookPage() {
@@ -107,7 +107,7 @@ export default function NotebookPage() {
         return;
       }
       if ("error" in playerResult) {
-        setStatus(playerResult.error);
+        setStatus(playerResult.error ?? null);
         return;
       }
 
@@ -124,7 +124,7 @@ export default function NotebookPage() {
         return;
       }
       if ("error" in playersResult) {
-        setStatus(playersResult.error);
+        setStatus(playersResult.error ?? null);
         return;
       }
       setPlayers(playersResult.data);
@@ -251,7 +251,7 @@ export default function NotebookPage() {
     );
     const result = await updateNotebookChecks(code, playerId, notebookChecks);
     if ("error" in result) {
-      setStatus(result.error);
+      setStatus(result.error ?? null);
     }
   };
 

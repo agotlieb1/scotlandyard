@@ -15,7 +15,7 @@ import {
   Typography,
 } from "@mui/material";
 import type { SxProps, Theme } from "@mui/material/styles";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import {
@@ -92,7 +92,7 @@ const useTypewriter = (length: number, active: boolean, key: string) => {
 
 const renderSegments = (segments: TextSegment[], visibleCount: number) => {
   let remaining = visibleCount;
-  const rendered: JSX.Element[] = [];
+  const rendered: ReactElement[] = [];
   segments.forEach((segment, index) => {
     if (remaining <= 0) {
       return;
@@ -267,21 +267,21 @@ export default function CrimeComputerPage() {
 
       const playerResult = await upsertPlayer(code, playerId);
       if (isActive && "error" in playerResult) {
-        setStatus(playerResult.error);
+        setStatus(playerResult.error ?? null);
         return;
       }
 
       const playersResult = await fetchPlayers(code);
       if (isActive) {
         if ("error" in playersResult) {
-          setStatus(playersResult.error);
+          setStatus(playersResult.error ?? null);
         } else {
           setPlayers(playersResult.data);
         }
       }
 
       const caseResult = await fetchCaseFile(code);
-      if (isActive && "data" in caseResult) {
+      if (isActive && "data" in caseResult && caseResult.data) {
         setCaseFile(caseResult.data);
       }
 
@@ -308,7 +308,7 @@ export default function CrimeComputerPage() {
         return;
       }
       if ("error" in accusationsResult) {
-        setStatus(accusationsResult.error);
+        setStatus(accusationsResult.error ?? null);
       } else {
         setAnnouncements(accusationsResult.data);
       }
@@ -458,7 +458,7 @@ export default function CrimeComputerPage() {
     setIsSubmitting(false);
 
     if ("error" in result) {
-      setStatus(result.error);
+      setStatus(result.error ?? null);
       return;
     }
 
@@ -474,7 +474,7 @@ export default function CrimeComputerPage() {
         message: "REVEAL",
       });
       if ("error" in revealResult) {
-        setStatus(revealResult.error);
+        setStatus(revealResult.error ?? null);
         return;
       }
     }
