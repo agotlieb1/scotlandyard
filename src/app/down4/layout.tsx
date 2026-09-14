@@ -24,8 +24,14 @@ export default function Down4Layout({
 }: {
   children: React.ReactNode;
 }) {
+  // MUI portals menus to document.body, outside this wrapper, so publish the
+  // font variables at the root as well. Plain CSS rather than emotion's
+  // GlobalStyles, so the markup is identical on the server and the client.
+  const rootFontVars = `:root{--font-down4-display:${displayFont.style.fontFamily};--font-down4-body:${bodyFont.style.fontFamily};}`;
+
   return (
     <div className={`${displayFont.variable} ${bodyFont.variable}`}>
+      <style>{rootFontVars}</style>
       <Down4Shell>{children}</Down4Shell>
     </div>
   );

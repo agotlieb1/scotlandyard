@@ -76,6 +76,14 @@ end $$;
 
 do $$
 begin
+  create policy "Public crews update" on down4_crews
+    for update using (true) with check (true);
+exception
+  when duplicate_object then null;
+end $$;
+
+do $$
+begin
   create policy "Public beacons read" on down4_beacons
     for select using (true);
 exception

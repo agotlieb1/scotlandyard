@@ -95,6 +95,13 @@ and come back whenever.
    it runs until.
 4. Anyone can hit **Me too!** to step onto someone else's beacon.
 
+The crew code at the top of the board is a switcher: it lists every crew this
+device has joined, so you can hop between them without hunting for links. The
+same list appears on `/down4`. A crew created without a name shows a **Name this
+crew** button, and a named one can be renamed from the header. The board also
+lists everyone in the crew at the bottom, with whoever is currently lit
+highlighted.
+
 A beacon reads as a sentence, and blank parts are simply left out:
 
 ```

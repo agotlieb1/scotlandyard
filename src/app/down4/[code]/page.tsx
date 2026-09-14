@@ -6,6 +6,9 @@ import {
   Button,
   Chip,
   Container,
+  Divider,
+  Menu,
+  MenuItem,
   Paper,
   Stack,
   TextField,
@@ -21,13 +24,16 @@ import {
   clearBeacon,
   fetchBoard,
   fetchCrew,
+  fetchMyCrews,
   joinBeacon,
   joinCrew,
   leaveCrew,
   lightBeacon,
   normalizeCrewCode,
   updateBeacon,
+  updateCrewName,
 } from "@/lib/down4";
+import type { Down4CrewSummary } from "@/lib/down4";
 import {
   AREA_PREPOSITION,
   buildSentence,
@@ -92,6 +98,11 @@ export default function Down4BoardPage() {
   const [beacons, setBeacons] = useState<Down4Beacon[]>([]);
   const [now, setNow] = useState(() => Date.now());
 
+  const [myCrews, setMyCrews] = useState<Down4CrewSummary[]>([]);
+  const [crewMenuAnchor, setCrewMenuAnchor] = useState<HTMLElement | null>(null);
+  const [crewNameDraft, setCrewNameDraft] = useState("");
+  const [isNamingCrew, setIsNamingCrew] = useState(false);
+
   const [nameDraft, setNameDraft] = useState("");
   const [activityDraft, setActivityDraft] = useState("");
   const [areaDraft, setAreaDraft] = useState("");
@@ -119,6 +130,14 @@ export default function Down4BoardPage() {
   const otherBeacons = useMemo(
     () => lit.filter((entry) => entry.beacon.id !== me?.beacon_id),
     [lit, me?.beacon_id]
+  );
+
+  const litMemberIds = useMemo(
+    () =>
+      new Set(
+        lit.flatMap((entry) => entry.members.map((member) => member.member_id))
+      ),
+    [lit]
   );
 
   const reload = useCallback(async () => {
@@ -162,6 +181,11 @@ export default function Down4BoardPage() {
         setMembers(boardResult.data.members);
         setBeacons(boardResult.data.beacons);
       }
+      const crewsResult = await fetchMyCrews(memberId);
+      if (isActive && "data" in crewsResult) {
+        setMyCrews(crewsResult.data);
+      }
+
       setIsLoading(false);
     };
 
@@ -170,7 +194,7 @@ export default function Down4BoardPage() {
     return () => {
       isActive = false;
     };
-  }, [code]);
+  }, [code, memberId]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), TICK_MS);
@@ -204,6 +228,16 @@ export default function Down4BoardPage() {
           filter: `crew_code=eq.${code}`,
         },
         () => reload()
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "down4_crews",
+          filter: `code=eq.${code}`,
+        },
+        (payload) => setCrew(payload.new as Down4Crew)
       )
       .subscribe();
 
@@ -298,6 +332,29 @@ export default function Down4BoardPage() {
     setIsEditing(true);
   };
 
+  const startNamingCrew = () => {
+    setCrewNameDraft(crew?.name ?? "");
+    setIsNamingCrew(true);
+  };
+
+  const handleSaveCrewName = async () => {
+    const result = await updateCrewName(code, crewNameDraft);
+    if ("error" in result) {
+      setStatus(result.error);
+      return;
+    }
+    setCrew(result.data);
+    setMyCrews((current) =>
+      current.map((entry) =>
+        entry.code === result.data.code
+          ? { code: entry.code, name: result.data.name }
+          : entry
+      )
+    );
+    setIsNamingCrew(false);
+    setStatus(null);
+  };
+
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(
@@ -346,23 +403,122 @@ export default function Down4BoardPage() {
   return (
     <Container maxWidth="sm" sx={{ py: { xs: 4, md: 7 } }}>
       <Stack spacing={3}>
-        <Stack
-          direction="row"
-          spacing={2}
-          alignItems="flex-start"
-          justifyContent="space-between"
-        >
-          <Stack spacing={0.5}>
-            <Typography variant="overline" sx={{ color: NEON.cyan }}>
-              {code}
-            </Typography>
-            <Typography variant="h3" component="h1">
-              {crew.name || "Down4"}
-            </Typography>
+        <Stack spacing={1.5}>
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Button
+              size="small"
+              variant="text"
+              onClick={(event) => setCrewMenuAnchor(event.currentTarget)}
+              sx={{ color: NEON.cyan, px: 1 }}
+            >
+              {code} ▾
+            </Button>
+            <Button size="small" variant="outlined" onClick={handleCopy}>
+              {copied ? "Copied" : "Share"}
+            </Button>
           </Stack>
-          <Button size="small" variant="outlined" onClick={handleCopy}>
-            {copied ? "Copied" : "Share"}
-          </Button>
+
+          <Menu
+            anchorEl={crewMenuAnchor}
+            open={Boolean(crewMenuAnchor)}
+            onClose={() => setCrewMenuAnchor(null)}
+            /* Modal's scroll lock writes inline styles onto <body>, which then
+               disagree with the server HTML on the next navigation. */
+            disableScrollLock
+          >
+            {myCrews.map((entry) => (
+              <MenuItem
+                key={entry.code}
+                selected={entry.code === code}
+                onClick={() => {
+                  setCrewMenuAnchor(null);
+                  if (entry.code !== code) {
+                    router.push(`/down4/${entry.code}`);
+                  }
+                }}
+              >
+                {entry.name || entry.code}
+                {entry.name && (
+                  <Box
+                    component="span"
+                    sx={{ ml: 1, color: "text.secondary", fontSize: "0.8em" }}
+                  >
+                    {entry.code}
+                  </Box>
+                )}
+              </MenuItem>
+            ))}
+            {myCrews.length > 0 && <Divider />}
+            <MenuItem
+              onClick={() => {
+                setCrewMenuAnchor(null);
+                router.push("/down4");
+              }}
+            >
+              Join or start another crew
+            </MenuItem>
+          </Menu>
+
+          {isNamingCrew ? (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <TextField
+                autoFocus
+                size="small"
+                placeholder="Sunday Crew"
+                value={crewNameDraft}
+                onChange={(event) => setCrewNameDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    handleSaveCrewName();
+                  }
+                  if (event.key === "Escape") {
+                    setIsNamingCrew(false);
+                  }
+                }}
+                inputProps={{ maxLength: MAX_NAME_LENGTH }}
+                fullWidth
+              />
+              <Button variant="contained" onClick={handleSaveCrewName}>
+                Save
+              </Button>
+              <Button variant="text" onClick={() => setIsNamingCrew(false)}>
+                Cancel
+              </Button>
+            </Stack>
+          ) : crew.name ? (
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="baseline"
+              flexWrap="wrap"
+              useFlexGap
+            >
+              <Typography variant="h3" component="h1">
+                {crew.name}
+              </Typography>
+              <Button size="small" variant="text" onClick={startNamingCrew}>
+                rename
+              </Button>
+            </Stack>
+          ) : (
+            <Stack spacing={1} alignItems="flex-start">
+              <Typography variant="h3" component="h1">
+                Down4
+              </Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={startNamingCrew}
+              >
+                Name this crew
+              </Button>
+            </Stack>
+          )}
         </Stack>
 
         {status && (
@@ -597,6 +753,42 @@ export default function Down4BoardPage() {
             </Paper>
           ))}
         </Stack>
+
+        {members.length > 0 && (
+          <Paper sx={{ p: 2.5, mt: 1 }}>
+            <Stack spacing={1.5}>
+              <Typography variant="overline" color="text.secondary">
+                In this crew ({members.length})
+              </Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                {members.map((member) => {
+                  const isLit = litMemberIds.has(member.member_id);
+                  const isMe = member.member_id === memberId;
+                  return (
+                    <Chip
+                      key={member.id}
+                      label={isMe ? `${member.name} (you)` : member.name}
+                      variant={isLit ? "filled" : "outlined"}
+                      size="small"
+                      sx={
+                        isLit
+                          ? {
+                              backgroundColor: NEON.lime,
+                              color: NEON.ink,
+                            }
+                          : { color: "text.secondary" }
+                      }
+                    />
+                  );
+                })}
+              </Stack>
+              <Typography variant="caption" color="text.secondary">
+                Lit up in green. Everyone else is on the board but not down for
+                anything right now.
+              </Typography>
+            </Stack>
+          </Paper>
+        )}
 
         <Stack direction="row" spacing={1} sx={{ pt: 2 }} flexWrap="wrap" useFlexGap>
           <Button variant="text" size="small" onClick={() => router.push("/down4")}>

@@ -80,6 +80,81 @@ export const fetchCrew = async (
   return { data: data as Down4Crew };
 };
 
+export const updateCrewName = async (
+  code: string,
+  name: string
+): Promise<Down4Result<Down4Crew>> => {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return { error: "Supabase is not configured." };
+  }
+
+  const trimmed = name.trim().slice(0, MAX_NAME_LENGTH);
+  if (!trimmed) {
+    return { error: "Give the crew a name." };
+  }
+
+  const { data, error } = await supabase
+    .from("down4_crews")
+    .update({ name: trimmed })
+    .eq("code", code)
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  if (!data) {
+    return { error: "That crew is gone." };
+  }
+
+  return { data: data as Down4Crew };
+};
+
+export type Down4CrewSummary = { code: string; name: string | null };
+
+/** Every crew this device has joined, so you can hop between them. */
+export const fetchMyCrews = async (
+  memberId: string
+): Promise<Down4Result<Down4CrewSummary[]>> => {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return { error: "Supabase is not configured." };
+  }
+
+  const { data: memberships, error } = await supabase
+    .from("down4_members")
+    .select("crew_code")
+    .eq("member_id", memberId);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  const codes = [
+    ...new Set((memberships ?? []).map((row) => row.crew_code as string)),
+  ];
+  if (codes.length === 0) {
+    return { data: [] };
+  }
+
+  const { data: crews, error: crewError } = await supabase
+    .from("down4_crews")
+    .select("code, name")
+    .in("code", codes);
+
+  if (crewError) {
+    return { error: crewError.message };
+  }
+
+  const sorted = ((crews ?? []) as Down4CrewSummary[]).sort((a, b) =>
+    (a.name || a.code).localeCompare(b.name || b.code)
+  );
+
+  return { data: sorted };
+};
+
 export type Down4Board = {
   members: Down4Member[];
   beacons: Down4Beacon[];

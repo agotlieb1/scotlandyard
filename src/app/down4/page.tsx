@@ -10,15 +10,18 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
   MAX_NAME_LENGTH,
   createCrew,
   fetchCrew,
+  fetchMyCrews,
   normalizeCrewCode,
 } from "@/lib/down4";
+import type { Down4CrewSummary } from "@/lib/down4";
+import { getPlayerId } from "@/lib/player";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { NEON } from "./theme";
 
@@ -30,6 +33,21 @@ export default function Down4HomePage() {
   const [status, setStatus] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [myCrews, setMyCrews] = useState<Down4CrewSummary[]>([]);
+
+  useEffect(() => {
+    let isActive = true;
+    const load = async () => {
+      const result = await fetchMyCrews(getPlayerId());
+      if (isActive && "data" in result) {
+        setMyCrews(result.data);
+      }
+    };
+    load();
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   const handleJoin = async () => {
     const normalized = normalizeCrewCode(crewCode);
@@ -90,6 +108,29 @@ export default function Down4HomePage() {
             , and now you have plans. Bookmark it; the board never expires.
           </Typography>
         </Stack>
+
+        {myCrews.length > 0 && (
+          <Paper sx={{ p: 3 }}>
+            <Stack spacing={2}>
+              <Typography variant="h6">Your crews</Typography>
+              <Stack spacing={1}>
+                {myCrews.map((entry) => (
+                  <Button
+                    key={entry.code}
+                    variant="outlined"
+                    onClick={() => router.push(`/down4/${entry.code}`)}
+                    sx={{ justifyContent: "space-between" }}
+                  >
+                    <Box component="span">{entry.name || "Unnamed crew"}</Box>
+                    <Box component="span" sx={{ color: NEON.cyan }}>
+                      {entry.code}
+                    </Box>
+                  </Button>
+                ))}
+              </Stack>
+            </Stack>
+          </Paper>
+        )}
 
         <Paper sx={{ p: 3 }}>
           <Stack spacing={2}>
