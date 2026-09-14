@@ -199,6 +199,14 @@ export default function Down4BoardPage() {
     };
   }, [code, memberId]);
 
+  // The server renders a code-only title so it never waits on Supabase; once
+  // the crew is loaded the real name is known here.
+  useEffect(() => {
+    if (crew) {
+      document.title = `Down4 · ${crew.name || `Crew ${code}`}`;
+    }
+  }, [crew, code]);
+
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), TICK_MS);
     return () => clearInterval(timer);

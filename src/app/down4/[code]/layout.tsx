@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
 
-import { fetchCrewName } from "@/lib/down4-server";
 import { normalizeInvestigationCode } from "@/lib/investigation-code";
 
+/**
+ * Deliberately does no network work: this blocks the page render, and the crew
+ * name is not worth a round trip in front of every board. The board sets the
+ * document title from the crew once it has loaded, and the manifest route
+ * carries the name for the installed app.
+ */
 export async function generateMetadata({
   params,
 }: {
@@ -10,16 +15,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { code: rawCode } = await params;
   const code = normalizeInvestigationCode(rawCode);
-  const crewName = await fetchCrewName(code);
-  const label = crewName || `Crew ${code}`;
 
   return {
-    title: `Down4 · ${label}`,
-    // Per-crew manifest, so "add to home screen" pins this crew.
+    title: `Down4 · Crew ${code}`,
     manifest: `/down4/${code}/manifest.webmanifest`,
     appleWebApp: {
       capable: true,
-      title: crewName || "Down4",
+      title: "Down4",
       statusBarStyle: "black-translucent",
     },
     other: {

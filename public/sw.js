@@ -48,8 +48,12 @@ self.addEventListener("fetch", (event) => {
       (async () => {
         try {
           const fresh = await fetch(request);
-          const cache = await caches.open(CACHE);
-          cache.put(request, fresh.clone());
+          // Only good responses are worth keeping: caching a 5xx would replay
+          // an outage as the offline page long after it is over.
+          if (fresh.ok) {
+            const cache = await caches.open(CACHE);
+            cache.put(request, fresh.clone());
+          }
           return fresh;
         } catch {
           return (
@@ -74,7 +78,11 @@ self.addEventListener("fetch", (event) => {
         const cached = await caches.match(request);
         const network = fetch(request)
           .then((response) => {
-            caches.open(CACHE).then((cache) => cache.put(request, response.clone()));
+            if (response.ok) {
+              caches
+                .open(CACHE)
+                .then((cache) => cache.put(request, response.clone()));
+            }
             return response;
           })
           .catch(() => cached);
