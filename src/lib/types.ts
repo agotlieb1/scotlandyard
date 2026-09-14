@@ -54,11 +54,15 @@ export type Down4Crew = {
   created_at: string;
 };
 
+/** 'show_up': already there, walk in. 'text_me': up for it, reach out first. */
+export type Down4JoinMode = "show_up" | "text_me";
+
 export type Down4Beacon = {
   id: string;
   crew_code: string;
   activity: string;
   area: string;
+  join_mode: Down4JoinMode;
   until_at: string | null;
   created_at: string;
   updated_at: string;

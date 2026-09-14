@@ -1,14 +1,27 @@
 import type {
   Down4Beacon,
+  Down4JoinMode,
   Down4LitBeacon,
   Down4Member,
 } from "./types";
 
 /**
- * Reads naturally for both a neighbourhood ("around Decatur") and a venue
- * ("around Cosmic Lanes"). One constant so the whole app agrees.
+ * The preposition falls out of how you join in. Someone already there is "at
+ * Cosmic Lanes" — a place you can walk into. Someone who would come out if
+ * asked is "around Decatur" — a general part of town.
  */
-export const AREA_PREPOSITION = "around";
+export const areaPreposition = (joinMode: Down4JoinMode) =>
+  joinMode === "show_up" ? "at" : "around";
+
+export const JOIN_MODE_LABEL: Record<Down4JoinMode, string> = {
+  show_up: "Just show up",
+  text_me: "Text me first",
+};
+
+export const JOIN_MODE_HINT: Record<Down4JoinMode, string> = {
+  show_up: "I am there now — come find me.",
+  text_me: "Not out yet, but say the word.",
+};
 
 /** "Aaron" / "Aaron and Damond" / "Aaron, Damond, and Casey" */
 export const formatNames = (names: string[]) => {
@@ -59,23 +72,28 @@ export type BeaconSentence = {
   activity: string;
   /** Empty when not set — blank parts are dropped, not rendered. */
   area: string;
+  areaPreposition: string;
   until: string;
+  joinMode: Down4JoinMode;
   text: string;
 };
 
 export const buildSentence = (
   names: string[],
-  beacon: Pick<Down4Beacon, "activity" | "area" | "until_at">
+  beacon: Pick<Down4Beacon, "activity" | "area" | "until_at" | "join_mode">
 ): BeaconSentence => {
   const subject = formatNames(names);
   const verb = names.length === 1 ? "is" : "are";
   const activity = beacon.activity.trim();
   const area = (beacon.area ?? "").trim();
   const until = formatUntil(beacon.until_at);
+  const joinMode: Down4JoinMode =
+    beacon.join_mode === "show_up" ? "show_up" : "text_me";
+  const preposition = areaPreposition(joinMode);
 
   const parts = [subject, verb, "down4", activity];
   if (area) {
-    parts.push(`${AREA_PREPOSITION} ${area}`);
+    parts.push(`${preposition} ${area}`);
   }
   if (until) {
     parts.push(`until ${until}`);
@@ -86,7 +104,9 @@ export const buildSentence = (
     verb,
     activity,
     area,
+    areaPreposition: preposition,
     until,
+    joinMode,
     text: `${parts.filter(Boolean).join(" ")}.`,
   };
 };

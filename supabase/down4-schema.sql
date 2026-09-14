@@ -16,6 +16,7 @@ create table if not exists down4_beacons (
   crew_code text not null references down4_crews (code) on delete cascade,
   activity text not null,
   area text not null default '',
+  join_mode text not null default 'text_me',
   until_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -31,6 +32,22 @@ create table if not exists down4_members (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- How to join in: 'show_up' means the beacon's owner is already there, so the
+-- area is a place you can walk into; 'text_me' means they are up for it but not
+-- out yet, so the area is a general one. This also decides the preposition the
+-- sentence reads with.
+alter table down4_beacons
+  add column if not exists join_mode text not null default 'text_me';
+
+do $$
+begin
+  alter table down4_beacons
+    add constraint down4_beacons_join_mode_check
+    check (join_mode in ('show_up', 'text_me'));
+exception
+  when duplicate_object then null;
+end $$;
 
 -- Upgrade path from the first cut of this schema, which kept a boolean and a
 -- free-text note on the member row.

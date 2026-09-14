@@ -35,7 +35,8 @@ import {
 } from "@/lib/down4";
 import type { Down4CrewSummary } from "@/lib/down4";
 import {
-  AREA_PREPOSITION,
+  JOIN_MODE_HINT,
+  JOIN_MODE_LABEL,
   buildSentence,
   groupLitBeacons,
 } from "@/lib/down4-sentence";
@@ -43,7 +44,12 @@ import { getPlayerId } from "@/lib/player";
 import { useIsOnline } from "@/lib/use-online";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import type { Down4Beacon, Down4Crew, Down4Member } from "@/lib/types";
+import type {
+  Down4Beacon,
+  Down4Crew,
+  Down4JoinMode,
+  Down4Member,
+} from "@/lib/types";
 import { NEON } from "../theme";
 import InstallAppButton from "../install-button";
 
@@ -113,6 +119,8 @@ export default function Down4BoardPage() {
   const [activityDraft, setActivityDraft] = useState("");
   const [areaDraft, setAreaDraft] = useState("");
   const [untilDraft, setUntilDraft] = useState("");
+  const [joinModeDraft, setJoinModeDraft] =
+    useState<Down4JoinMode>("text_me");
   const [isEditing, setIsEditing] = useState(false);
 
   const [status, setStatus] = useState<string | null>(null);
@@ -313,6 +321,7 @@ export default function Down4BoardPage() {
           activity: activityDraft,
           area: areaDraft,
           untilAt: timeInputToIso(untilDraft),
+          joinMode: joinModeDraft,
         },
         me?.beacon_id ?? null
       )
@@ -327,6 +336,7 @@ export default function Down4BoardPage() {
         activity: activityDraft,
         area: areaDraft,
         untilAt: timeInputToIso(untilDraft),
+        joinMode: joinModeDraft,
       })
     );
     if (ok) {
@@ -346,6 +356,7 @@ export default function Down4BoardPage() {
       setActivityDraft("");
       setAreaDraft("");
       setUntilDraft("");
+      setJoinModeDraft("text_me");
     }
   };
 
@@ -362,6 +373,9 @@ export default function Down4BoardPage() {
       myBeacon.beacon.until_at
         ? toTimeInput(new Date(myBeacon.beacon.until_at))
         : ""
+    );
+    setJoinModeDraft(
+      myBeacon.beacon.join_mode === "show_up" ? "show_up" : "text_me"
     );
     setIsEditing(true);
   };
@@ -663,6 +677,14 @@ export default function Down4BoardPage() {
                     size="large"
                   />
 
+                  <JoinModeBadge
+                    mode={
+                      myBeacon.beacon.join_mode === "show_up"
+                        ? "show_up"
+                        : "text_me"
+                    }
+                  />
+
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                     <Button
                       variant="contained"
@@ -694,10 +716,50 @@ export default function Down4BoardPage() {
                     inputProps={{ maxLength: MAX_ACTIVITY_LENGTH }}
                     fullWidth
                   />
+                  <Stack spacing={1}>
+                    <Typography variant="caption" color="text.secondary">
+                      how do people join in?
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      {(["show_up", "text_me"] as Down4JoinMode[]).map(
+                        (mode) => {
+                          const selected = joinModeDraft === mode;
+                          return (
+                            <Chip
+                              key={mode}
+                              label={JOIN_MODE_LABEL[mode]}
+                              onClick={() => setJoinModeDraft(mode)}
+                              sx={{
+                                backgroundColor: selected
+                                  ? NEON.lime
+                                  : "transparent",
+                                color: selected ? NEON.ink : "text.secondary",
+                                border: selected
+                                  ? "none"
+                                  : "1px solid rgba(247,241,255,0.28)",
+                              }}
+                            />
+                          );
+                        }
+                      )}
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary">
+                      {JOIN_MODE_HINT[joinModeDraft]}
+                    </Typography>
+                  </Stack>
+
                   <TextField
-                    label="around where? (optional)"
+                    label={
+                      joinModeDraft === "show_up"
+                        ? "at where? (optional)"
+                        : "around where? (optional)"
+                    }
                     InputLabelProps={{ shrink: true }}
-                    placeholder="Decatur, Cosmic Lanes, my porch"
+                    placeholder={
+                      joinModeDraft === "show_up"
+                        ? "Java House, Cosmic Lanes, the park"
+                        : "Decatur, the east side, my porch"
+                    }
                     value={areaDraft}
                     onChange={(event) => setAreaDraft(event.target.value)}
                     inputProps={{ maxLength: MAX_AREA_LENGTH }}
@@ -791,6 +853,12 @@ export default function Down4BoardPage() {
                 <BeaconLine
                   names={entry.members.map((member) => member.name)}
                   beacon={entry.beacon}
+                />
+
+                <JoinModeBadge
+                  mode={
+                    entry.beacon.join_mode === "show_up" ? "show_up" : "text_me"
+                  }
                 />
                 <Stack
                   direction="row"
@@ -897,7 +965,7 @@ function BeaconLine({
       {sentence.area && (
         <>
           <Box component="span" sx={{ color: "text.secondary" }}>
-            {` ${AREA_PREPOSITION} `}
+            {` ${sentence.areaPreposition} `}
           </Box>
           <Box component="span" sx={{ color: NEON.cyan }}>
             {sentence.area}
@@ -917,5 +985,21 @@ function BeaconLine({
       )}
       <Box component="span">.</Box>
     </Typography>
+  );
+}
+
+function JoinModeBadge({ mode }: { mode: Down4JoinMode }) {
+  const isShowUp = mode === "show_up";
+  return (
+    <Chip
+      size="small"
+      label={JOIN_MODE_LABEL[mode]}
+      sx={{
+        alignSelf: "flex-start",
+        backgroundColor: isShowUp ? NEON.lime : "transparent",
+        color: isShowUp ? NEON.ink : NEON.cyan,
+        border: isShowUp ? "none" : `1px solid ${NEON.cyan}`,
+      }}
+    />
   );
 }

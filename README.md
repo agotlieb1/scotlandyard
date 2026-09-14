@@ -122,8 +122,15 @@ A beacon reads as a sentence, and blank parts are simply left out:
 Aaron is down4 coffee around Decatur until 3pm.
 Aaron is down4 coffee around Decatur.
 Aaron is down4 coffee until 3pm.
-Aaron and Damond are down4 bowling around Cosmic Lanes.
+Aaron and Damond are down4 bowling at Cosmic Lanes.
 ```
+
+Every beacon says how to join in, and that choice picks the preposition:
+
+- **Just show up** — already there, so the area is somewhere you can walk into
+  and the sentence reads "**at** Cosmic Lanes".
+- **Text me first** — up for it but not out yet, so the area is a general one
+  and it reads "**around** Decatur".
 
 Only lit beacons are listed — someone with their beacon off is not shown at all.
 A beacon with an `until` time drops off the board on its own once that time

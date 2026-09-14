@@ -3,7 +3,12 @@ import {
   normalizeInvestigationCode,
 } from "./investigation-code";
 import { getSupabaseClient } from "./supabase/client";
-import type { Down4Beacon, Down4Crew, Down4Member } from "./types";
+import type {
+  Down4Beacon,
+  Down4Crew,
+  Down4JoinMode,
+  Down4Member,
+} from "./types";
 
 const MAX_CREATE_ATTEMPTS = 5;
 
@@ -19,6 +24,7 @@ export type BeaconDraft = {
   activity: string;
   area: string;
   untilAt: string | null;
+  joinMode: Down4JoinMode;
 };
 
 /**
@@ -316,6 +322,7 @@ export const lightBeacon = async (
       activity,
       area: draft.area.trim().slice(0, MAX_AREA_LENGTH),
       until_at: draft.untilAt,
+      join_mode: draft.joinMode,
     })
     .select()
     .maybeSingle();
@@ -361,6 +368,7 @@ export const updateBeacon = async (
       activity,
       area: draft.area.trim().slice(0, MAX_AREA_LENGTH),
       until_at: draft.untilAt,
+      join_mode: draft.joinMode,
       updated_at: new Date().toISOString(),
     })
     .eq("id", beaconId)
