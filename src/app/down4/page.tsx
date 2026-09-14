@@ -15,42 +15,55 @@ import {
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { normalizeInvestigationCode } from "@/lib/investigation-code";
+import {
+  MAX_NAME_LENGTH,
+  createCrew,
+  fetchCrew,
+  normalizeCrewCode,
+} from "@/lib/down4";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
-export default function Home() {
+export default function Down4HomePage() {
   const router = useRouter();
   const supabase = getSupabaseClient();
-  const [investigationCode, setInvestigationCode] = useState("");
+  const [crewCode, setCrewCode] = useState("");
+  const [crewName, setCrewName] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   const handleJoin = async () => {
-    const normalized = normalizeInvestigationCode(investigationCode);
+    const normalized = normalizeCrewCode(crewCode);
     if (normalized.length < 4) {
-      setStatus("Enter a valid investigation code.");
-      return;
-    }
-    if (!supabase) {
-      setStatus("Supabase is not configured yet.");
+      setStatus("Enter a valid crew code.");
       return;
     }
 
     setStatus(null);
     setIsJoining(true);
-    const { data, error } = await supabase
-      .from("investigations")
-      .select("code")
-      .eq("code", normalized)
-      .maybeSingle();
+    const result = await fetchCrew(normalized);
     setIsJoining(false);
 
-    if (error || !data) {
-      setStatus("Investigation not found. Check the code and try again.");
+    if ("error" in result) {
+      setStatus(result.error);
       return;
     }
 
-    router.push(`/investigation/${normalized}`);
+    router.push(`/down4/${normalized}`);
+  };
+
+  const handleCreate = async () => {
+    setStatus(null);
+    setIsCreating(true);
+    const result = await createCrew(crewName);
+    setIsCreating(false);
+
+    if ("error" in result) {
+      setStatus(result.error);
+      return;
+    }
+
+    router.push(`/down4/${result.code}`);
   };
 
   return (
@@ -67,14 +80,15 @@ export default function Home() {
         <Stack spacing={5}>
           <Stack spacing={2}>
             <Typography variant="overline" color="text.secondary">
-              Companion for mystery night
+              Standing board for the group chat
             </Typography>
             <Typography variant="h3" component="h1">
-              Scotland Yard Companion
+              Down4
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Start an investigation, lock roles in The Murder, and track clues
-              together in The Notebook.
+              One code, one link, no expiry. Everyone posts what they are down
+              for, flips their Down4 light on, and the crew knows who to text.
+              Bookmark the board and come back whenever.
             </Typography>
           </Stack>
 
@@ -82,14 +96,12 @@ export default function Home() {
             <Card variant="outlined" sx={{ flex: 1 }}>
               <CardContent>
                 <Stack spacing={2}>
-                  <Typography variant="h6">Join an investigation</Typography>
+                  <Typography variant="h6">Join a crew</Typography>
                   <TextField
-                    label="Investigation code"
-                    value={investigationCode}
+                    label="Crew code"
+                    value={crewCode}
                     onChange={(event) =>
-                      setInvestigationCode(
-                        normalizeInvestigationCode(event.target.value)
-                      )
+                      setCrewCode(normalizeCrewCode(event.target.value))
                     }
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
@@ -107,7 +119,7 @@ export default function Home() {
                   onClick={handleJoin}
                   disabled={isJoining}
                 >
-                  Join investigation
+                  {isJoining ? "Finding crew..." : "Join crew"}
                 </Button>
               </CardActions>
             </Card>
@@ -115,51 +127,47 @@ export default function Home() {
             <Card variant="outlined" sx={{ flex: 1 }}>
               <CardContent>
                 <Stack spacing={2}>
-                  <Typography variant="h6">Start an investigation</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Generate an investigation code and invite the table with a
-                    single link.
-                  </Typography>
+                  <Typography variant="h6">Start a crew</Typography>
+                  <TextField
+                    label="Crew name (optional)"
+                    value={crewName}
+                    onChange={(event) => setCrewName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        handleCreate();
+                      }
+                    }}
+                    helperText="Something the group will recognize."
+                    inputProps={{ maxLength: MAX_NAME_LENGTH }}
+                  />
                 </Stack>
               </CardContent>
               <CardActions sx={{ px: 2, pb: 2 }}>
                 <Button
                   variant="outlined"
-                  onClick={() => router.push("/setup")}
+                  onClick={handleCreate}
+                  disabled={isCreating}
                 >
-                  Start investigation
+                  {isCreating ? "Creating crew..." : "Create crew"}
                 </Button>
               </CardActions>
             </Card>
           </Stack>
 
-          <Card variant="outlined">
-            <CardContent>
-              <Stack spacing={1}>
-                <Typography variant="overline" color="text.secondary">
-                  Also on this site
-                </Typography>
-                <Typography variant="h6">Down4</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  A permanent board for the friend group. Join with a crew code,
-                  bookmark it, and post what you are down for whenever.
-                </Typography>
-              </Stack>
-            </CardContent>
-            <CardActions sx={{ px: 2, pb: 2 }}>
-              <Button variant="text" onClick={() => router.push("/down4")}>
-                Open Down4
-              </Button>
-            </CardActions>
-          </Card>
-
           {status && <Alert severity="warning">{status}</Alert>}
           {!supabase && (
             <Alert severity="info">
-              Add your Supabase env vars to enable investigations and realtime
-              sync.
+              Add your Supabase env vars to enable crews and realtime sync.
             </Alert>
           )}
+
+          <Button
+            variant="text"
+            sx={{ alignSelf: "flex-start" }}
+            onClick={() => router.push("/")}
+          >
+            Back to Scotland Yard
+          </Button>
         </Stack>
       </Container>
     </Box>

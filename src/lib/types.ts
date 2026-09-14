@@ -47,3 +47,20 @@ export type InvestigationAccusation = {
   message: string;
   created_at: string;
 };
+
+export type Down4Crew = {
+  code: string;
+  name: string | null;
+  created_at: string;
+};
+
+export type Down4Member = {
+  id: string;
+  crew_code: string;
+  member_id: string;
+  name: string;
+  is_down: boolean;
+  down_for: string;
+  created_at: string;
+  updated_at: string;
+};

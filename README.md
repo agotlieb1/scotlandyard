@@ -37,6 +37,11 @@ Run the SQL in `supabase/schema.sql` in your Supabase project. This creates:
 - `investigation_case_files` for the locked case file
 - `investigation_accusations` for Scotland Yard announcements
 
+Then run the SQL in `supabase/down4-schema.sql` for the Down4 board:
+
+- `down4_crews` for permanent crew codes
+- `down4_members` for each friend's name, Down4 toggle, and what they are down for
+
 The SQL enables open RLS policies for MVP testing. Tighten these before shipping.
 
 ## Deploy to Vercel
@@ -71,4 +76,19 @@ builds and runs, but every page shows a "Supabase is not configured" notice.
 - `/investigation/[code]/murder` The Murder setup.
 - `/investigation/[code]/notebook` The Notebook.
 - `/investigation/[code]/crime-computer` Crime Computer.
+- `/down4` Join or start a Down4 crew.
+- `/down4/[code]` The crew's permanent Down4 board.
+
+## Down4
+
+Down4 is a parallel app on the same site. A crew code works like an
+investigation code, but the board never ends: bookmark `/down4/[code]` and come
+back whenever.
+
+1. Start a crew (or join one with its code) and share the link.
+2. Add your name to the board. The device remembers you.
+3. Flip your Down4 light on and type what you are down for.
+4. The list syncs in realtime, so anyone can see who to text about pizza.
+
+Each person edits only their own row; everyone else's is read-only.
 # scotlandyard
