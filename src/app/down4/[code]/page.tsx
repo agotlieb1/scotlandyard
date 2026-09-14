@@ -50,6 +50,9 @@ import InstallAppButton from "../install-button";
 /** Beacons expire on the clock, so re-check often enough to feel live. */
 const TICK_MS = 20_000;
 
+/** Realtime is the primary path; this only covers a dropped socket. */
+const POLL_MS = 30_000;
+
 const QUICK_UNTIL: { label: string; minutes: number }[] = [
   { label: "+1 hr", minutes: 60 },
   { label: "+2 hrs", minutes: 120 },
@@ -258,6 +261,26 @@ export default function Down4BoardPage() {
   }, [code, reload]);
 
   type ActionResult = { error: string } | { ok: true } | { data: unknown };
+
+  // A websocket can die quietly — a phone sleeping, a tunnel, a proxy. Refetch
+  // when the tab comes back and on a slow timer so the board self-heals.
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") {
+        reload();
+      }
+    };
+
+    document.addEventListener("visibilitychange", refreshIfVisible);
+    window.addEventListener("focus", refreshIfVisible);
+    const timer = setInterval(refreshIfVisible, POLL_MS);
+
+    return () => {
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+      window.removeEventListener("focus", refreshIfVisible);
+      clearInterval(timer);
+    };
+  }, [reload]);
 
   const runAction = async (action: () => Promise<ActionResult>) => {
     setIsBusy(true);

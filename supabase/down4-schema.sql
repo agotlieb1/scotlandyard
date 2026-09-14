@@ -146,14 +146,22 @@ exception
   when duplicate_object then null;
 end $$;
 
--- Realtime: the board listens for beacon and member changes so the crew stays
+-- Realtime: the board listens for crew, beacon and member changes so it stays
 -- in sync without a refresh.
+--
+-- REPLICA IDENTITY FULL matters for DELETE: without it Postgres only ships the
+-- primary key, so a filtered subscription (crew_code=eq.X) never matches a
+-- delete and a swept beacon lingers on other people's screens.
+alter table down4_crews replica identity full;
+alter table down4_beacons replica identity full;
+alter table down4_members replica identity full;
+
 do $$
 declare
   t text;
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    foreach t in array array['down4_beacons', 'down4_members'] loop
+    foreach t in array array['down4_crews', 'down4_beacons', 'down4_members'] loop
       if not exists (
         select 1 from pg_publication_tables
         where pubname = 'supabase_realtime'
