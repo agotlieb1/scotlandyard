@@ -129,7 +129,7 @@ Every beacon says how to join in, and that choice picks the preposition:
 
 - **Just show up** — already there, so the area is somewhere you can walk into
   and the sentence reads "**at** Cosmic Lanes".
-- **Text me first** — up for it but not out yet, so the area is a general one
+- **Text 2 join** — up for it but not out yet, so the area is a general one
   and it reads "**around** Decatur".
 
 Only lit beacons are listed — someone with their beacon off is not shown at all.
