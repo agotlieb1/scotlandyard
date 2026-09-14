@@ -17,7 +17,7 @@ export const areaPreposition = (joinMode: Down4JoinMode) =>
 // lit beacon is open to the whole crew either way.
 export const JOIN_MODE_LABEL: Record<Down4JoinMode, string> = {
   show_up: "Just show up",
-  text_me: "Text 2 join",
+  text_me: "Text 2 Plan",
 };
 
 export const JOIN_MODE_HINT: Record<Down4JoinMode, string> = {
