@@ -13,14 +13,16 @@ import type {
 export const areaPreposition = (joinMode: Down4JoinMode) =>
   joinMode === "show_up" ? "at" : "around";
 
+// Both labels are instructions to the reader, not conditions on the beacon: a
+// lit beacon is open to the whole crew either way.
 export const JOIN_MODE_LABEL: Record<Down4JoinMode, string> = {
   show_up: "Just show up",
-  text_me: "Text me first",
+  text_me: "Text 2 join",
 };
 
 export const JOIN_MODE_HINT: Record<Down4JoinMode, string> = {
   show_up: "I am there now — come find me.",
-  text_me: "Not out yet, but say the word.",
+  text_me: "Not out yet — text and I am in.",
 };
 
 /** "Aaron" / "Aaron and Damond" / "Aaron, Damond, and Casey" */
