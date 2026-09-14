@@ -4,10 +4,8 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardActions,
-  CardContent,
   Container,
+  Paper,
   Stack,
   TextField,
   Typography,
@@ -22,6 +20,7 @@ import {
   normalizeCrewCode,
 } from "@/lib/down4";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { NEON } from "./theme";
 
 export default function Down4HomePage() {
   const router = useRouter();
@@ -67,109 +66,106 @@ export default function Down4HomePage() {
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        py: { xs: 6, md: 10 },
-        backgroundImage: "var(--map-bg)",
-      }}
-    >
-      <Container maxWidth="md">
-        <Stack spacing={5}>
-          <Stack spacing={2}>
-            <Typography variant="overline" color="text.secondary">
-              Standing board for the group chat
-            </Typography>
-            <Typography variant="h3" component="h1">
-              Down4
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              One code, one link, no expiry. Everyone posts what they are down
-              for, flips their Down4 light on, and the crew knows who to text.
-              Bookmark the board and come back whenever.
-            </Typography>
-          </Stack>
-
-          <Stack spacing={3} direction={{ xs: "column", md: "row" }}>
-            <Card variant="outlined" sx={{ flex: 1 }}>
-              <CardContent>
-                <Stack spacing={2}>
-                  <Typography variant="h6">Join a crew</Typography>
-                  <TextField
-                    label="Crew code"
-                    value={crewCode}
-                    onChange={(event) =>
-                      setCrewCode(normalizeCrewCode(event.target.value))
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        handleJoin();
-                      }
-                    }}
-                    helperText="5-6 characters, letters and numbers."
-                    inputProps={{ maxLength: 6 }}
-                  />
-                </Stack>
-              </CardContent>
-              <CardActions sx={{ px: 2, pb: 2 }}>
-                <Button
-                  variant="contained"
-                  onClick={handleJoin}
-                  disabled={isJoining}
-                >
-                  {isJoining ? "Finding crew..." : "Join crew"}
-                </Button>
-              </CardActions>
-            </Card>
-
-            <Card variant="outlined" sx={{ flex: 1 }}>
-              <CardContent>
-                <Stack spacing={2}>
-                  <Typography variant="h6">Start a crew</Typography>
-                  <TextField
-                    label="Crew name (optional)"
-                    value={crewName}
-                    onChange={(event) => setCrewName(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        handleCreate();
-                      }
-                    }}
-                    helperText="Something the group will recognize."
-                    inputProps={{ maxLength: MAX_NAME_LENGTH }}
-                  />
-                </Stack>
-              </CardContent>
-              <CardActions sx={{ px: 2, pb: 2 }}>
-                <Button
-                  variant="outlined"
-                  onClick={handleCreate}
-                  disabled={isCreating}
-                >
-                  {isCreating ? "Creating crew..." : "Create crew"}
-                </Button>
-              </CardActions>
-            </Card>
-          </Stack>
-
-          {status && <Alert severity="warning">{status}</Alert>}
-          {!supabase && (
-            <Alert severity="info">
-              Add your Supabase env vars to enable crews and realtime sync.
-            </Alert>
-          )}
-
-          <Button
-            variant="text"
-            sx={{ alignSelf: "flex-start" }}
-            onClick={() => router.push("/")}
+    <Container maxWidth="sm" sx={{ py: { xs: 6, md: 10 } }}>
+      <Stack spacing={4}>
+        <Stack spacing={1.5}>
+          <Typography variant="overline" sx={{ color: NEON.cyan }}>
+            No plans? Same.
+          </Typography>
+          <Typography
+            variant="h1"
+            sx={{ fontSize: { xs: "3.4rem", md: "4.6rem" }, lineHeight: 0.95 }}
           >
-            Back to Scotland Yard
-          </Button>
+            Down
+            <Box component="span" sx={{ color: NEON.lime }}>
+              4
+            </Box>
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Light a beacon for whatever you are up for — coffee, bowling, a
+            drive with no destination. Your crew sees it, taps{" "}
+            <Box component="span" sx={{ color: NEON.cyan }}>
+              Me too!
+            </Box>
+            , and now you have plans. Bookmark it; the board never expires.
+          </Typography>
         </Stack>
-      </Container>
-    </Box>
+
+        <Paper sx={{ p: 3 }}>
+          <Stack spacing={2}>
+            <Typography variant="h6">Join your crew</Typography>
+            <TextField
+              label="Crew code"
+              value={crewCode}
+              onChange={(event) =>
+                setCrewCode(normalizeCrewCode(event.target.value))
+              }
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  handleJoin();
+                }
+              }}
+              inputProps={{ maxLength: 6 }}
+              fullWidth
+            />
+            <Button
+              variant="contained"
+              size="large"
+              onClick={handleJoin}
+              disabled={isJoining}
+            >
+              {isJoining ? "Looking..." : "Take me there"}
+            </Button>
+          </Stack>
+        </Paper>
+
+        <Paper sx={{ p: 3 }}>
+          <Stack spacing={2}>
+            <Typography variant="h6">Or start one</Typography>
+            <TextField
+              label="Crew name (optional)"
+              placeholder="Sunday Crew"
+              value={crewName}
+              onChange={(event) => setCrewName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  handleCreate();
+                }
+              }}
+              inputProps={{ maxLength: MAX_NAME_LENGTH }}
+              fullWidth
+            />
+            <Button
+              variant="outlined"
+              size="large"
+              onClick={handleCreate}
+              disabled={isCreating}
+            >
+              {isCreating ? "Building..." : "Make a crew"}
+            </Button>
+          </Stack>
+        </Paper>
+
+        {status && (
+          <Alert severity="warning" onClose={() => setStatus(null)}>
+            {status}
+          </Alert>
+        )}
+        {!supabase && (
+          <Alert severity="info">
+            Add your Supabase env vars to enable crews and realtime sync.
+          </Alert>
+        )}
+
+        <Button
+          variant="text"
+          size="small"
+          sx={{ alignSelf: "flex-start" }}
+          onClick={() => router.push("/")}
+        >
+          Back to Scotland Yard
+        </Button>
+      </Stack>
+    </Container>
   );
 }

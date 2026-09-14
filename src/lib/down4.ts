@@ -3,15 +3,23 @@ import {
   normalizeInvestigationCode,
 } from "./investigation-code";
 import { getSupabaseClient } from "./supabase/client";
-import type { Down4Crew, Down4Member } from "./types";
+import type { Down4Beacon, Down4Crew, Down4Member } from "./types";
 
 const MAX_CREATE_ATTEMPTS = 5;
 
+export const MAX_NAME_LENGTH = 40;
+export const MAX_ACTIVITY_LENGTH = 80;
+export const MAX_AREA_LENGTH = 60;
+
 // Explicit result unions so `"error" in result` narrows for callers.
 export type Down4Result<T> = { error: string } | { data: T };
+type WriteResult = { error: string } | { ok: true };
 
-export const MAX_DOWN_FOR_LENGTH = 140;
-export const MAX_NAME_LENGTH = 40;
+export type BeaconDraft = {
+  activity: string;
+  area: string;
+  untilAt: string | null;
+};
 
 export const generateCrewCode = () => generateInvestigationCode();
 
@@ -72,25 +80,45 @@ export const fetchCrew = async (
   return { data: data as Down4Crew };
 };
 
-export const fetchMembers = async (
+export type Down4Board = {
+  members: Down4Member[];
+  beacons: Down4Beacon[];
+};
+
+export const fetchBoard = async (
   code: string
-): Promise<Down4Result<Down4Member[]>> => {
+): Promise<Down4Result<Down4Board>> => {
   const supabase = getSupabaseClient();
   if (!supabase) {
     return { error: "Supabase is not configured." };
   }
 
-  const { data, error } = await supabase
-    .from("down4_members")
-    .select("*")
-    .eq("crew_code", code)
-    .order("created_at", { ascending: true });
+  const [membersResult, beaconsResult] = await Promise.all([
+    supabase
+      .from("down4_members")
+      .select("*")
+      .eq("crew_code", code)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("down4_beacons")
+      .select("*")
+      .eq("crew_code", code)
+      .order("created_at", { ascending: false }),
+  ]);
 
-  if (error) {
-    return { error: error.message };
+  if (membersResult.error) {
+    return { error: membersResult.error.message };
+  }
+  if (beaconsResult.error) {
+    return { error: beaconsResult.error.message };
   }
 
-  return { data: (data ?? []) as Down4Member[] };
+  return {
+    data: {
+      members: (membersResult.data ?? []) as Down4Member[],
+      beacons: (beaconsResult.data ?? []) as Down4Beacon[],
+    },
+  };
 };
 
 export const joinCrew = async (
@@ -133,33 +161,78 @@ export const joinCrew = async (
   return { data: data as Down4Member };
 };
 
-export const updateStatus = async (
+const pointMemberAtBeacon = async (
   code: string,
   memberId: string,
-  changes: { is_down?: boolean; down_for?: string }
-): Promise<Down4Result<Down4Member>> => {
+  beaconId: string | null
+): Promise<WriteResult> => {
   const supabase = getSupabaseClient();
   if (!supabase) {
     return { error: "Supabase is not configured." };
   }
 
-  const payload: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
-  };
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("down4_members")
+    .update({
+      beacon_id: beaconId,
+      beacon_joined_at: beaconId ? now : null,
+      updated_at: now,
+    })
+    .eq("crew_code", code)
+    .eq("member_id", memberId);
 
-  if (typeof changes.is_down === "boolean") {
-    payload.is_down = changes.is_down;
+  if (error) {
+    return { error: error.message };
   }
 
-  if (typeof changes.down_for === "string") {
-    payload.down_for = changes.down_for.slice(0, MAX_DOWN_FOR_LENGTH);
+  return { ok: true };
+};
+
+/** Delete a beacon once the last person has stepped off it. */
+const sweepBeaconIfEmpty = async (beaconId: string) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return;
   }
 
   const { data, error } = await supabase
     .from("down4_members")
-    .update(payload)
-    .eq("crew_code", code)
-    .eq("member_id", memberId)
+    .select("id")
+    .eq("beacon_id", beaconId)
+    .limit(1);
+
+  if (error || (data && data.length > 0)) {
+    return;
+  }
+
+  await supabase.from("down4_beacons").delete().eq("id", beaconId);
+};
+
+export const lightBeacon = async (
+  code: string,
+  memberId: string,
+  draft: BeaconDraft,
+  previousBeaconId: string | null
+): Promise<Down4Result<Down4Beacon>> => {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return { error: "Supabase is not configured." };
+  }
+
+  const activity = draft.activity.trim().slice(0, MAX_ACTIVITY_LENGTH);
+  if (!activity) {
+    return { error: "Say what you are down for." };
+  }
+
+  const { data, error } = await supabase
+    .from("down4_beacons")
+    .insert({
+      crew_code: code,
+      activity,
+      area: draft.area.trim().slice(0, MAX_AREA_LENGTH),
+      until_at: draft.untilAt,
+    })
     .select()
     .maybeSingle();
 
@@ -168,16 +241,100 @@ export const updateStatus = async (
   }
 
   if (!data) {
-    return { error: "Your spot on the board is missing. Rejoin the crew." };
+    return { error: "Unable to light your beacon." };
   }
 
-  return { data: data as Down4Member };
+  const beacon = data as Down4Beacon;
+  const pointed = await pointMemberAtBeacon(code, memberId, beacon.id);
+  if ("error" in pointed) {
+    return { error: pointed.error };
+  }
+
+  if (previousBeaconId && previousBeaconId !== beacon.id) {
+    await sweepBeaconIfEmpty(previousBeaconId);
+  }
+
+  return { data: beacon };
+};
+
+export const updateBeacon = async (
+  beaconId: string,
+  draft: BeaconDraft
+): Promise<Down4Result<Down4Beacon>> => {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return { error: "Supabase is not configured." };
+  }
+
+  const activity = draft.activity.trim().slice(0, MAX_ACTIVITY_LENGTH);
+  if (!activity) {
+    return { error: "Say what you are down for." };
+  }
+
+  const { data, error } = await supabase
+    .from("down4_beacons")
+    .update({
+      activity,
+      area: draft.area.trim().slice(0, MAX_AREA_LENGTH),
+      until_at: draft.untilAt,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", beaconId)
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  if (!data) {
+    return { error: "That beacon is gone." };
+  }
+
+  return { data: data as Down4Beacon };
+};
+
+/** "Me too" — step onto someone else's beacon. */
+export const joinBeacon = async (
+  code: string,
+  memberId: string,
+  beaconId: string,
+  previousBeaconId: string | null
+): Promise<WriteResult> => {
+  const pointed = await pointMemberAtBeacon(code, memberId, beaconId);
+  if ("error" in pointed) {
+    return pointed;
+  }
+
+  if (previousBeaconId && previousBeaconId !== beaconId) {
+    await sweepBeaconIfEmpty(previousBeaconId);
+  }
+
+  return { ok: true };
+};
+
+export const clearBeacon = async (
+  code: string,
+  memberId: string,
+  beaconId: string | null
+): Promise<WriteResult> => {
+  const pointed = await pointMemberAtBeacon(code, memberId, null);
+  if ("error" in pointed) {
+    return pointed;
+  }
+
+  if (beaconId) {
+    await sweepBeaconIfEmpty(beaconId);
+  }
+
+  return { ok: true };
 };
 
 export const leaveCrew = async (
   code: string,
-  memberId: string
-): Promise<{ error: string } | { ok: true }> => {
+  memberId: string,
+  beaconId: string | null
+): Promise<WriteResult> => {
   const supabase = getSupabaseClient();
   if (!supabase) {
     return { error: "Supabase is not configured." };
@@ -191,6 +348,10 @@ export const leaveCrew = async (
 
   if (error) {
     return { error: error.message };
+  }
+
+  if (beaconId) {
+    await sweepBeaconIfEmpty(beaconId);
   }
 
   return { ok: true };

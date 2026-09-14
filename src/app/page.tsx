@@ -141,8 +141,8 @@ export default function Home() {
                 </Typography>
                 <Typography variant="h6">Down4</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  A permanent board for the friend group. Join with a crew code,
-                  bookmark it, and post what you are down for whenever.
+                  A permanent board for the friend group. Light a beacon for
+                  whatever you are up for, and see who else is down.
                 </Typography>
               </Stack>
             </CardContent>

@@ -54,13 +54,29 @@ export type Down4Crew = {
   created_at: string;
 };
 
+export type Down4Beacon = {
+  id: string;
+  crew_code: string;
+  activity: string;
+  area: string;
+  until_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Down4Member = {
   id: string;
   crew_code: string;
   member_id: string;
   name: string;
-  is_down: boolean;
-  down_for: string;
+  beacon_id: string | null;
+  beacon_joined_at: string | null;
   created_at: string;
   updated_at: string;
+};
+
+/** A beacon plus everyone who is in on it, newest joiner last. */
+export type Down4LitBeacon = {
+  beacon: Down4Beacon;
+  members: Down4Member[];
 };
