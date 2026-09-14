@@ -21,6 +21,15 @@ export type BeaconDraft = {
   untilAt: string | null;
 };
 
+/**
+ * Supabase surfaces a dropped connection as "TypeError: Failed to fetch",
+ * which is meaningless to someone whose train went into a tunnel.
+ */
+const describeError = (message: string) =>
+  typeof navigator !== "undefined" && !navigator.onLine
+    ? "You are offline. The board will catch up when you are back."
+    : message;
+
 export const generateCrewCode = () => generateInvestigationCode();
 
 export const normalizeCrewCode = (value: string) =>
@@ -46,7 +55,7 @@ export const createCrew = async (
       if (error.code === "23505") {
         continue;
       }
-      return { error: error.message };
+      return { error: describeError(error.message) };
     }
 
     return { code };
@@ -70,7 +79,7 @@ export const fetchCrew = async (
     .maybeSingle();
 
   if (error) {
-    return { error: error.message };
+    return { error: describeError(error.message) };
   }
 
   if (!data) {
@@ -102,7 +111,7 @@ export const updateCrewName = async (
     .maybeSingle();
 
   if (error) {
-    return { error: error.message };
+    return { error: describeError(error.message) };
   }
 
   if (!data) {
@@ -129,7 +138,7 @@ export const fetchMyCrews = async (
     .eq("member_id", memberId);
 
   if (error) {
-    return { error: error.message };
+    return { error: describeError(error.message) };
   }
 
   const codes = [
@@ -145,7 +154,7 @@ export const fetchMyCrews = async (
     .in("code", codes);
 
   if (crewError) {
-    return { error: crewError.message };
+    return { error: describeError(crewError.message) };
   }
 
   const sorted = ((crews ?? []) as Down4CrewSummary[]).sort((a, b) =>
@@ -182,10 +191,10 @@ export const fetchBoard = async (
   ]);
 
   if (membersResult.error) {
-    return { error: membersResult.error.message };
+    return { error: describeError(membersResult.error.message) };
   }
   if (beaconsResult.error) {
-    return { error: beaconsResult.error.message };
+    return { error: describeError(beaconsResult.error.message) };
   }
 
   return {
@@ -226,7 +235,7 @@ export const joinCrew = async (
     .maybeSingle();
 
   if (error) {
-    return { error: error.message };
+    return { error: describeError(error.message) };
   }
 
   if (!data) {
@@ -258,7 +267,7 @@ const pointMemberAtBeacon = async (
     .eq("member_id", memberId);
 
   if (error) {
-    return { error: error.message };
+    return { error: describeError(error.message) };
   }
 
   return { ok: true };
@@ -312,7 +321,7 @@ export const lightBeacon = async (
     .maybeSingle();
 
   if (error) {
-    return { error: error.message };
+    return { error: describeError(error.message) };
   }
 
   if (!data) {
@@ -359,7 +368,7 @@ export const updateBeacon = async (
     .maybeSingle();
 
   if (error) {
-    return { error: error.message };
+    return { error: describeError(error.message) };
   }
 
   if (!data) {
@@ -422,7 +431,7 @@ export const leaveCrew = async (
     .eq("member_id", memberId);
 
   if (error) {
-    return { error: error.message };
+    return { error: describeError(error.message) };
   }
 
   if (beaconId) {

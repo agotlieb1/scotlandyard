@@ -40,10 +40,12 @@ import {
   groupLitBeacons,
 } from "@/lib/down4-sentence";
 import { getPlayerId } from "@/lib/player";
+import { useIsOnline } from "@/lib/use-online";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { Down4Beacon, Down4Crew, Down4Member } from "@/lib/types";
 import { NEON } from "../theme";
+import InstallAppButton from "../install-button";
 
 /** Beacons expire on the clock, so re-check often enough to feel live. */
 const TICK_MS = 20_000;
@@ -92,6 +94,7 @@ export default function Down4BoardPage() {
     [params.code]
   );
   const memberId = useMemo(() => getPlayerId(), []);
+  const isOnline = useIsOnline();
 
   const [crew, setCrew] = useState<Down4Crew | null>(null);
   const [members, setMembers] = useState<Down4Member[]>([]);
@@ -389,10 +392,30 @@ export default function Down4BoardPage() {
     return (
       <Container maxWidth="sm" sx={{ py: 8 }}>
         <Stack spacing={2}>
-          <Alert severity="warning">{status ?? "Crew not found."}</Alert>
-          <Button variant="outlined" onClick={() => router.push("/down4")}>
-            Back to Down4
-          </Button>
+          {isOnline ? (
+            <Alert severity="warning">{status ?? "Crew not found."}</Alert>
+          ) : (
+            <Paper sx={{ p: 3 }}>
+              <Stack spacing={1.5}>
+                <Typography variant="h5">You are offline</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Down4 needs the network to read the board. It will load as
+                  soon as you have signal again.
+                </Typography>
+              </Stack>
+            </Paper>
+          )}
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              onClick={() => window.location.reload()}
+            >
+              Try again
+            </Button>
+            <Button variant="text" onClick={() => router.push("/down4")}>
+              Back to Down4
+            </Button>
+          </Stack>
         </Stack>
       </Container>
     );
@@ -418,9 +441,12 @@ export default function Down4BoardPage() {
             >
               {code} ▾
             </Button>
-            <Button size="small" variant="outlined" onClick={handleCopy}>
-              {copied ? "Copied" : "Share"}
-            </Button>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <InstallAppButton />
+              <Button size="small" variant="outlined" onClick={handleCopy}>
+                {copied ? "Copied" : "Share"}
+              </Button>
+            </Stack>
           </Stack>
 
           <Menu
@@ -520,6 +546,12 @@ export default function Down4BoardPage() {
             </Stack>
           )}
         </Stack>
+
+        {!isOnline && (
+          <Alert severity="info">
+            You are offline — this board may be out of date.
+          </Alert>
+        )}
 
         {status && (
           <Alert severity="warning" onClose={() => setStatus(null)}>

@@ -95,6 +95,20 @@ and come back whenever.
    it runs until.
 4. Anyone can hit **Me too!** to step onto someone else's beacon.
 
+### Install a crew as an app
+
+Each crew page serves its own web app manifest at
+`/down4/[code]/manifest.webmanifest`, so installing from a crew page pins that
+crew: the icon opens straight back to it and carries the crew's name. On Chrome,
+Edge and Android an **Install** button appears in the header when the browser
+offers one; on iOS use Share → Add to Home Screen.
+
+A service worker (`public/sw.js`) is registered with scope `/down4`, so it never
+touches the investigation side of the site. Pages are network-first and cached
+only as an offline fallback, so a board is never served stale while the network
+is up, and Supabase requests are never intercepted. Opened without a connection,
+the board says so instead of failing.
+
 The crew code at the top of the board is a switcher: it lists every crew this
 device has joined, so you can hop between them without hunting for links. The
 same list appears on `/down4`. A crew created without a name shows a **Name this

@@ -1,6 +1,7 @@
 import { Bricolage_Grotesque, Space_Grotesk } from "next/font/google";
 
 import Down4Shell from "./shell";
+import RegisterServiceWorker from "./register-sw";
 
 const displayFont = Bricolage_Grotesque({
   variable: "--font-down4-display",
@@ -17,6 +18,14 @@ const bodyFont = Space_Grotesk({
 export const metadata = {
   title: "Down4",
   description: "What the crew is down for, right now.",
+  icons: {
+    icon: "/icons/down4-192.png",
+    apple: "/icons/down4-apple-180.png",
+  },
+};
+
+export const viewport = {
+  themeColor: "#12071f",
 };
 
 export default function Down4Layout({
@@ -32,6 +41,7 @@ export default function Down4Layout({
   return (
     <div className={`${displayFont.variable} ${bodyFont.variable}`}>
       <style>{rootFontVars}</style>
+      <RegisterServiceWorker />
       <Down4Shell>{children}</Down4Shell>
     </div>
   );
