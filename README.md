@@ -109,6 +109,10 @@ only as an offline fallback, so a board is never served stale while the network
 is up, and Supabase requests are never intercepted. Opened without a connection,
 the board says so instead of failing.
 
+A crew with a beacon lit right now glows in "Your crews" on `/down4` and in the
+switcher, with a count, and sorts to the top — so you can tell at a glance which
+board is worth opening.
+
 The crew code at the top of the board is a switcher: it lists every crew this
 device has joined, so you can hop between them without hunting for links. The
 same list appears on `/down4`. A crew created without a name shows a **Name this

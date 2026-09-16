@@ -2,6 +2,7 @@ import {
   generateInvestigationCode,
   normalizeInvestigationCode,
 } from "./investigation-code";
+import { groupLitBeacons } from "./down4-sentence";
 import { getSupabaseClient } from "./supabase/client";
 import type {
   Down4Beacon,
@@ -127,7 +128,12 @@ export const updateCrewName = async (
   return { data: data as Down4Crew };
 };
 
-export type Down4CrewSummary = { code: string; name: string | null };
+export type Down4CrewSummary = {
+  code: string;
+  name: string | null;
+  /** Beacons lit right now, so the crew list can show where to look first. */
+  litCount: number;
+};
 
 /** Every crew this device has joined, so you can hop between them. */
 export const fetchMyCrews = async (
@@ -154,20 +160,60 @@ export const fetchMyCrews = async (
     return { data: [] };
   }
 
-  const { data: crews, error: crewError } = await supabase
-    .from("down4_crews")
-    .select("code, name")
-    .in("code", codes);
+  const [crewsResult, beaconsResult, litMembersResult] = await Promise.all([
+    supabase.from("down4_crews").select("code, name").in("code", codes),
+    supabase.from("down4_beacons").select("*").in("crew_code", codes),
+    // Only members actually standing on a beacon matter for the count.
+    supabase
+      .from("down4_members")
+      .select("*")
+      .in("crew_code", codes)
+      .not("beacon_id", "is", null),
+  ]);
 
-  if (crewError) {
-    return { error: describeError(crewError.message) };
+  if (crewsResult.error) {
+    return { error: describeError(crewsResult.error.message) };
+  }
+  if (beaconsResult.error) {
+    return { error: describeError(beaconsResult.error.message) };
+  }
+  if (litMembersResult.error) {
+    return { error: describeError(litMembersResult.error.message) };
   }
 
-  const sorted = ((crews ?? []) as Down4CrewSummary[]).sort((a, b) =>
-    (a.name || a.code).localeCompare(b.name || b.code)
-  );
+  const beacons = (beaconsResult.data ?? []) as Down4Beacon[];
+  const litMembers = (litMembersResult.data ?? []) as Down4Member[];
+  const now = Date.now();
 
-  return { data: sorted };
+  const litCountByCrew = new Map<string, number>();
+  for (const code of codes) {
+    litCountByCrew.set(
+      code,
+      groupLitBeacons(
+        litMembers.filter((member) => member.crew_code === code),
+        beacons.filter((beacon) => beacon.crew_code === code),
+        now
+      ).length
+    );
+  }
+
+  const summaries: Down4CrewSummary[] = (
+    (crewsResult.data ?? []) as { code: string; name: string | null }[]
+  ).map((crew) => ({
+    code: crew.code,
+    name: crew.name,
+    litCount: litCountByCrew.get(crew.code) ?? 0,
+  }));
+
+  // Lit crews first — that is the whole point of the list.
+  summaries.sort((a, b) => {
+    if ((a.litCount > 0) !== (b.litCount > 0)) {
+      return a.litCount > 0 ? -1 : 1;
+    }
+    return (a.name || a.code).localeCompare(b.name || b.code);
+  });
+
+  return { data: summaries };
 };
 
 export type Down4Board = {

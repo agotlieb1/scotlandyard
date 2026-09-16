@@ -37,15 +37,31 @@ export default function Down4HomePage() {
 
   useEffect(() => {
     let isActive = true;
+
     const load = async () => {
       const result = await fetchMyCrews(getPlayerId());
       if (isActive && "data" in result) {
         setMyCrews(result.data);
       }
     };
+
     load();
+
+    // Beacons are lit and expire elsewhere; keep the glow honest.
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") {
+        load();
+      }
+    };
+    document.addEventListener("visibilitychange", refreshIfVisible);
+    window.addEventListener("focus", refreshIfVisible);
+    const timer = setInterval(refreshIfVisible, 30_000);
+
     return () => {
       isActive = false;
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+      window.removeEventListener("focus", refreshIfVisible);
+      clearInterval(timer);
     };
   }, []);
 
@@ -114,19 +130,88 @@ export default function Down4HomePage() {
             <Stack spacing={2}>
               <Typography variant="h6">Your crews</Typography>
               <Stack spacing={1}>
-                {myCrews.map((entry) => (
-                  <Button
-                    key={entry.code}
-                    variant="outlined"
-                    onClick={() => router.push(`/down4/${entry.code}`)}
-                    sx={{ justifyContent: "space-between" }}
-                  >
-                    <Box component="span">{entry.name || "Unnamed crew"}</Box>
-                    <Box component="span" sx={{ color: NEON.cyan }}>
-                      {entry.code}
-                    </Box>
-                  </Button>
-                ))}
+                {myCrews.map((entry) => {
+                  const isLit = entry.litCount > 0;
+                  return (
+                    <Button
+                      key={entry.code}
+                      variant="outlined"
+                      onClick={() => router.push(`/down4/${entry.code}`)}
+                      sx={{
+                        justifyContent: "space-between",
+                        gap: 1,
+                        ...(isLit
+                          ? {
+                              borderColor: NEON.lime,
+                              fontWeight: 800,
+                              color: NEON.lime,
+                              backgroundColor: "rgba(200, 255, 61, 0.08)",
+                              boxShadow: `0 0 0 1px ${NEON.lime}, 0 12px 34px -18px ${NEON.lime}`,
+                              "&:hover": {
+                                borderColor: NEON.lime,
+                                backgroundColor: "rgba(200, 255, 61, 0.16)",
+                              },
+                            }
+                          : {
+                              // Quiet crews recede, so one lit crew reads
+                              // instantly against them.
+                              borderColor: "rgba(247, 241, 255, 0.18)",
+                              color: "text.secondary",
+                              "&:hover": {
+                                borderColor: "rgba(247, 241, 255, 0.34)",
+                              },
+                            }),
+                      }}
+                    >
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        alignItems="center"
+                        sx={{ minWidth: 0 }}
+                      >
+                        {isLit && (
+                          <Box
+                            sx={{
+                              flexShrink: 0,
+                              width: 9,
+                              height: 9,
+                              borderRadius: "50%",
+                              backgroundColor: NEON.lime,
+                              boxShadow: `0 0 10px 3px ${NEON.lime}`,
+                              "@keyframes down4ListPulse": {
+                                "0%, 100%": { opacity: 1 },
+                                "50%": { opacity: 0.35 },
+                              },
+                              animation:
+                                "down4ListPulse 1.8s ease-in-out infinite",
+                            }}
+                          />
+                        )}
+                        <Box
+                          component="span"
+                          sx={{
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {entry.name || "Unnamed crew"}
+                        </Box>
+                      </Stack>
+                      <Box
+                        component="span"
+                        sx={{
+                          flexShrink: 0,
+                          color: isLit ? NEON.lime : NEON.cyan,
+                        }}
+                      >
+                        {isLit
+                          ? `${entry.litCount} lit`
+                          : entry.code}
+                      </Box>
+                    </Button>
+                  );
+                })}
               </Stack>
             </Stack>
           </Paper>

@@ -395,7 +395,7 @@ export default function Down4BoardPage() {
     setMyCrews((current) =>
       current.map((entry) =>
         entry.code === result.data.code
-          ? { code: entry.code, name: result.data.name }
+          ? { ...entry, name: result.data.name }
           : entry
       )
     );
@@ -513,15 +513,31 @@ export default function Down4BoardPage() {
                   }
                 }}
               >
-                {entry.name || entry.code}
-                {entry.name && (
+                {entry.litCount > 0 && (
                   <Box
                     component="span"
-                    sx={{ ml: 1, color: "text.secondary", fontSize: "0.8em" }}
-                  >
-                    {entry.code}
-                  </Box>
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      mr: 1,
+                      borderRadius: "50%",
+                      flexShrink: 0,
+                      backgroundColor: NEON.lime,
+                      boxShadow: `0 0 9px 2px ${NEON.lime}`,
+                    }}
+                  />
                 )}
+                {entry.name || entry.code}
+                <Box
+                  component="span"
+                  sx={{
+                    ml: 1,
+                    fontSize: "0.8em",
+                    color: entry.litCount > 0 ? NEON.lime : "text.secondary",
+                  }}
+                >
+                  {entry.litCount > 0 ? `${entry.litCount} lit` : entry.code}
+                </Box>
               </MenuItem>
             ))}
             {myCrews.length > 0 && <Divider />}
