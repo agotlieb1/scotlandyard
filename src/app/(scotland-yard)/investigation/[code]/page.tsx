@@ -22,6 +22,7 @@ import {
 import { formatAlias } from "@/lib/alias";
 import { getPlayerId } from "@/lib/player";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import BrandHomeLink from "@/app/brand-home-link";
 import type { InvestigationCaseFile, InvestigationPlayer } from "@/lib/types";
 
 export default function InvestigationPage() {
@@ -270,14 +271,7 @@ export default function InvestigationPage() {
             </Stack>
           </Paper>
 
-          <Button
-            variant="text"
-            size="small"
-            sx={{ alignSelf: "flex-start" }}
-            onClick={() => router.push("/")}
-          >
-            ← Count Mittens Games
-          </Button>
+          <BrandHomeLink />
         </Stack>
       </Container>
     </Box>

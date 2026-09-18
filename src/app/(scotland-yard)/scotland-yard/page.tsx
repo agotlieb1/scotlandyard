@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 
 import { normalizeInvestigationCode } from "@/lib/investigation-code";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import BrandHomeLink from "@/app/brand-home-link";
 
 export default function ScotlandYardHomePage() {
   const router = useRouter();
@@ -141,14 +142,7 @@ export default function ScotlandYardHomePage() {
             </Alert>
           )}
 
-          <Button
-            variant="text"
-            size="small"
-            sx={{ alignSelf: "flex-start" }}
-            onClick={() => router.push("/")}
-          >
-            ← Count Mittens Games
-          </Button>
+          <BrandHomeLink />
         </Stack>
       </Container>
     </Box>

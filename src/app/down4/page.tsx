@@ -23,6 +23,7 @@ import {
 import type { Down4CrewSummary } from "@/lib/down4";
 import { getPlayerId } from "@/lib/player";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import BrandHomeLink from "@/app/brand-home-link";
 import { NEON } from "./theme";
 
 export default function Down4HomePage() {
@@ -283,14 +284,7 @@ export default function Down4HomePage() {
           </Alert>
         )}
 
-        <Button
-          variant="text"
-          size="small"
-          sx={{ alignSelf: "flex-start" }}
-          onClick={() => router.push("/")}
-        >
-          ← Count Mittens Games
-        </Button>
+        <BrandHomeLink />
       </Stack>
     </Container>
   );

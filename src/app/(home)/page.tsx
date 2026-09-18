@@ -8,6 +8,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import Image from "next/image";
 import NextLink from "next/link";
 
 import { BRAND } from "./theme";
@@ -75,19 +76,32 @@ const PROJECTS: Project[] = [
   },
 ];
 
-function PawMark() {
+function Crest() {
   return (
     <Box
-      component="svg"
-      viewBox="0 0 48 44"
-      aria-hidden="true"
-      sx={{ width: 44, height: 40, color: BRAND.gold }}
+      sx={{
+        position: "relative",
+        flexShrink: 0,
+        width: { xs: 232, md: 304 },
+        // A pool of candlelight behind the crest, so it hangs rather than floats.
+        "&::before": {
+          content: '""',
+          position: "absolute",
+          inset: "-6% -16%",
+          borderRadius: "50%",
+          background: `radial-gradient(circle, ${BRAND.gold}18, transparent 68%)`,
+        },
+      }}
     >
-      <ellipse cx="24" cy="31" rx="13" ry="10.5" fill="currentColor" />
-      <ellipse cx="9.5" cy="17" rx="5.5" ry="7" fill="currentColor" />
-      <ellipse cx="19.5" cy="9" rx="5.5" ry="7.5" fill="currentColor" />
-      <ellipse cx="30.5" cy="9" rx="5.5" ry="7.5" fill="currentColor" />
-      <ellipse cx="40.5" cy="17" rx="5.5" ry="7" fill="currentColor" />
+      <Image
+        src="/brand/count-mittens-crest.webp"
+        alt="The Count Mittens crest: a fanged black cat in a gilded shield"
+        width={880}
+        height={1244}
+        priority
+        sizes="(max-width: 900px) 232px, 304px"
+        style={{ position: "relative", width: "100%", height: "auto" }}
+      />
     </Box>
   );
 }
@@ -96,24 +110,38 @@ export default function HomePage() {
   return (
     <Container maxWidth="md" sx={{ py: { xs: 7, md: 12 } }}>
       <Stack spacing={{ xs: 5, md: 7 }}>
-        <Stack spacing={2}>
-          <PawMark />
-          <Typography
-            variant="h1"
-            sx={{
-              fontSize: { xs: "2.9rem", md: "4.2rem" },
-              lineHeight: 1.02,
-            }}
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={{ xs: 3, md: 6 }}
+          alignItems="center"
+        >
+          <Crest />
+          <Stack
+            spacing={2}
+            alignItems={{ xs: "center", md: "flex-start" }}
+            sx={{ textAlign: { xs: "center", md: "left" } }}
           >
-            Count Mittens
-            <Box component="span" sx={{ display: "block", color: BRAND.gold }}>
-              Games
-            </Box>
-          </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 560 }}>
-            Small games and small tools for the people you actually hang out
-            with. Pick a room and go in.
-          </Typography>
+            <Typography
+              variant="h1"
+              sx={{
+                fontSize: { xs: "2.9rem", md: "4.2rem" },
+                lineHeight: 1.02,
+              }}
+            >
+              Count Mittens
+              <Box component="span" sx={{ display: "block", color: BRAND.gold }}>
+                Games
+              </Box>
+            </Typography>
+            <Typography
+              variant="body1"
+              color="text.secondary"
+              sx={{ maxWidth: 460 }}
+            >
+              Small games and small tools for the people you actually hang out
+              with. Pick a room and go in.
+            </Typography>
+          </Stack>
         </Stack>
 
         <Stack spacing={3}>

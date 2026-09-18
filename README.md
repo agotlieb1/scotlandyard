@@ -76,8 +76,23 @@ builds and runs, but every page shows a "Supabase is not configured" notice.
 - `src/app/down4` the Down4 pages
 - `src/lib` Supabase helpers, investigation utilities, and game data
 
+- `public/brand` the Count Mittens crest and emblem
+
 Each product nests its own MUI theme inside the root providers, so the three
-looks never leak into each other.
+looks never leak into each other. The root providers sit inside MUI's
+`AppRouterCacheProvider`, which keeps emotion's style tags in the same order on
+the server and the client — without it every page hydrates with a mismatch.
+
+## Brand art
+
+Two marks, cut out of the source artwork for different jobs:
+
+- `public/brand/count-mittens-crest.webp` — the full crest, with the paper
+  behind it removed, so it hangs on the home page's dark background as art.
+- `public/brand/count-mittens-emblem.webp` — the round emblem, which keeps its
+  own pale disc and so stays legible on any background. It is the mark on the
+  "Count Mittens Games" link back from either product, and the source for
+  `src/app/favicon.ico` and `src/app/apple-icon.png`.
 
 ## MVP flow
 
