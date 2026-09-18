@@ -1,6 +1,14 @@
-# Scotland Yard Companion
+# Count Mittens Games
 
-Web companion for a murder mystery night: start an investigation, set up The Murder, and keep clues synced in realtime.
+The site hosts two small projects, each with its own look, behind one home page:
+
+- **Scotland Yard** — a companion for a murder mystery night: start an
+  investigation, set up The Murder, and keep clues synced in realtime.
+- **Down4** — a permanent board for a friend group: light a beacon for whatever
+  you are up for and see who else is down.
+
+`/` is the Count Mittens Games home and the only crossroads between them. Each
+project links back up to it; neither links directly to the other.
 
 ## Getting started
 
@@ -62,8 +70,14 @@ builds and runs, but every page shows a "Supabase is not configured" notice.
 
 ## Project layout
 
-- `src/app` Next.js App Router pages
+- `src/app/(home)` the Count Mittens Games home page, with its own theme
+- `src/app/(scotland-yard)` the investigation pages (route group; the group name
+  is not part of the URL)
+- `src/app/down4` the Down4 pages
 - `src/lib` Supabase helpers, investigation utilities, and game data
+
+Each product nests its own MUI theme inside the root providers, so the three
+looks never leak into each other.
 
 ## MVP flow
 
@@ -74,7 +88,8 @@ builds and runs, but every page shows a "Supabase is not configured" notice.
 
 ## Routes
 
-- `/` Join or start an investigation.
+- `/` Count Mittens Games home: pick a project.
+- `/scotland-yard` Join or start an investigation.
 - `/setup` Generate a new investigation code.
 - `/investigation/[code]` Investigation overview.
 - `/investigation/[code]/murder` The Murder setup.

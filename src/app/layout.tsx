@@ -25,8 +25,8 @@ const handwritingFont = Caveat({
 });
 
 export const metadata: Metadata = {
-  title: "Scotland Yard App",
-  description: "Investigation companion app",
+  title: "Count Mittens Games",
+  description: "Small games and small tools for the people you hang out with.",
 };
 
 export default function RootLayout({

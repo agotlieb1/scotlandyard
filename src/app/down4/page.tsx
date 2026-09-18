@@ -289,7 +289,7 @@ export default function Down4HomePage() {
           sx={{ alignSelf: "flex-start" }}
           onClick={() => router.push("/")}
         >
-          Back to Scotland Yard
+          ← Count Mittens Games
         </Button>
       </Stack>
     </Container>

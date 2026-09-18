@@ -18,7 +18,7 @@ import { useRouter } from "next/navigation";
 import { normalizeInvestigationCode } from "@/lib/investigation-code";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
-export default function Home() {
+export default function ScotlandYardHomePage() {
   const router = useRouter();
   const supabase = getSupabaseClient();
   const [investigationCode, setInvestigationCode] = useState("");
@@ -133,26 +133,6 @@ export default function Home() {
             </Card>
           </Stack>
 
-          <Card variant="outlined">
-            <CardContent>
-              <Stack spacing={1}>
-                <Typography variant="overline" color="text.secondary">
-                  Also on this site
-                </Typography>
-                <Typography variant="h6">Down4</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  A permanent board for the friend group. Light a beacon for
-                  whatever you are up for, and see who else is down.
-                </Typography>
-              </Stack>
-            </CardContent>
-            <CardActions sx={{ px: 2, pb: 2 }}>
-              <Button variant="text" onClick={() => router.push("/down4")}>
-                Open Down4
-              </Button>
-            </CardActions>
-          </Card>
-
           {status && <Alert severity="warning">{status}</Alert>}
           {!supabase && (
             <Alert severity="info">
@@ -160,6 +140,15 @@ export default function Home() {
               sync.
             </Alert>
           )}
+
+          <Button
+            variant="text"
+            size="small"
+            sx={{ alignSelf: "flex-start" }}
+            onClick={() => router.push("/")}
+          >
+            ← Count Mittens Games
+          </Button>
         </Stack>
       </Container>
     </Box>

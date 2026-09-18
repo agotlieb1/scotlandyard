@@ -269,6 +269,15 @@ export default function InvestigationPage() {
               </Stack>
             </Stack>
           </Paper>
+
+          <Button
+            variant="text"
+            size="small"
+            sx={{ alignSelf: "flex-start" }}
+            onClick={() => router.push("/")}
+          >
+            ← Count Mittens Games
+          </Button>
         </Stack>
       </Container>
     </Box>

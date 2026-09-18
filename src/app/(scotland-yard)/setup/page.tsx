@@ -66,8 +66,11 @@ export default function SetupPage() {
             <Button variant="contained" onClick={handleCreate}>
               {isCreating ? "Creating investigation..." : "Generate code"}
             </Button>
-            <Button variant="text" onClick={() => router.push("/")}>
-              Back to home
+            <Button
+              variant="text"
+              onClick={() => router.push("/scotland-yard")}
+            >
+              Back to Scotland Yard
             </Button>
           </Stack>
 
