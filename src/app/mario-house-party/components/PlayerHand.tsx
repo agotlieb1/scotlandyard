@@ -8,6 +8,9 @@ interface PlayerHandProps {
   hand: GameCard[];
   playerId: string;
   isCurrentPlayer: boolean;
+  /** The card picked up and waiting for a zone. */
+  selectedCard?: GameCard | null;
+  onCardTap?: (card: GameCard) => void;
   onCardDragStart?: (card: GameCard) => void;
 }
 
@@ -15,6 +18,8 @@ export function PlayerHand({
   hand,
   playerId,
   isCurrentPlayer,
+  selectedCard,
+  onCardTap,
   onCardDragStart,
 }: PlayerHandProps) {
   const handleDragStart = (e: React.DragEvent, card: GameCard) => {
@@ -76,14 +81,25 @@ export function PlayerHand({
               key={`hand-card-${idx}`}
               draggable={isCurrentPlayer}
               onDragStart={(e) => handleDragStart(e, card)}
+              onClick={
+                isCurrentPlayer && onCardTap ? () => onCardTap(card) : undefined
+              }
               sx={{
                 width: { xs: 80, sm: 100 },
                 cursor: isCurrentPlayer ? "grab" : "default",
-                transition: "transform 0.2s, box-shadow 0.2s",
+                // A picked-up card lifts out of the hand and stays there.
+                transform: selectedCard === card ? "translateY(-14px)" : "none",
+                filter:
+                  selectedCard === card
+                    ? "drop-shadow(0 10px 18px rgba(111, 209, 255, 0.55))"
+                    : undefined,
+                transition: "transform 0.2s, filter 0.2s",
                 "&:hover": isCurrentPlayer
                   ? {
-                      transform: "translateY(-8px) scale(1.05)",
-                      boxShadow: "0 8px 20px rgba(111, 209, 255, 0.4)",
+                      transform:
+                        selectedCard === card
+                          ? "translateY(-16px) scale(1.05)"
+                          : "translateY(-8px) scale(1.05)",
                     }
                   : {},
                 "&:active": isCurrentPlayer
@@ -110,7 +126,8 @@ export function PlayerHand({
             fontStyle: "italic",
           }}
         >
-          Drag cards to your boards to play them
+          Tap a card to pick it up, then tap a zone on your mat. Dragging
+          works too, on a desktop.
         </Typography>
       )}
     </Paper>

@@ -176,10 +176,19 @@ players (clearance to the rail goes from -6px to +27px, and from +9px to
 count. Measured on a 16:10 screen at 1600px wide, nothing overlaps at any seat
 count from two to six.
 
-`toMatBoard` turns a stored `PlayerBoard` into what the mat wants, so the live
-game board can render one without reshaping anything. The stored board now
-carries `inPlay` for the temporary row; boards saved before it simply have no
-such key and read as an empty row, so there is nothing to migrate.
+`toMatBoard` turns a stored `PlayerBoard` into what the mat wants. The stored
+board carries `inPlay` for the temporary row; boards saved before it simply
+have no such key and read as an empty row, so there is nothing to migrate.
+
+**The live board uses both.** A device that created the game (its
+`display_device_id`) is the shared screen and shows `TableView`; everyone
+else sees their own mat and their own hand. Playing a card is: tap it in your
+hand to pick it up, which lifts the card, lights every zone on the mat and
+scrolls the mat into view, then tap a zone to put it down. Dragging still
+works on a desktop — a zone reads the card off the drag event. This replaced
+an HTML5 drag that could not work on a phone at all, which is to say the game
+could not be played on a phone before. `components/PlayerBoard.tsx` is what
+the mat replaced and is no longer used by anything.
 
 Online play lives at `/mario-house-party/play/setup` (create or join a game by
 code) and `/mario-house-party/play/[code]` (the board). A turn is three

@@ -26,9 +26,11 @@ import {
 import { startMarioGame } from "@/lib/mario-game-start";
 import { playCard, endTurn, stealCard } from "@/lib/mario-game-actions";
 import type { MarioGame, MarioGamePlayer, MarioGameState } from "@/lib/mario-types";
-import type { GameCard, MainHouse } from "@/app/mario-house-party/types";
-import { PlayerBoard } from "@/app/mario-house-party/components/PlayerBoard";
+import type { GameCard } from "@/app/mario-house-party/types";
 import { PlayerHand } from "@/app/mario-house-party/components/PlayerHand";
+import { PlayMat, toMatBoard, type MatZone } from "@/app/mario-house-party/components/PlayMat";
+import { TableView, type Seat } from "@/app/mario-house-party/components/TableView";
+import { TABLE } from "@/app/mario-house-party/theme";
 import { TurnDisplay } from "@/app/mario-house-party/components/TurnDisplay";
 import { ActionButtons } from "@/app/mario-house-party/components/ActionButtons";
 import { StealDialog } from "@/app/mario-house-party/components/StealDialog";
@@ -58,6 +60,7 @@ export default function MarioGamePage() {
   const [stealDialogOpen, setStealDialogOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [isDisplayMode, setIsDisplayMode] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<GameCard | null>(null);
 
   // Initial load
   useEffect(() => {
@@ -225,17 +228,24 @@ export default function MarioGamePage() {
     // Game state will update via real-time subscription
   };
 
-  const handleCardPlay = async (card: GameCard, house: MainHouse) => {
+  const handleCardPlay = async (card: GameCard, zone: MatZone) => {
     if (!currentPlayer || actionLoading) return;
 
     setActionLoading(true);
-    const result = await playCard(code, playerId, card, house);
+    const result = await playCard(code, playerId, card, zone);
     setActionLoading(false);
+    setSelectedCard(null);
 
     if ("error" in result) {
       setError(result.error ?? "Unknown error");
       setTimeout(() => setError(null), 3000);
     }
+  };
+
+  // Tap a card in hand to pick it up, tap a zone to put it down.
+  const handleZoneChoose = (zone: MatZone) => {
+    if (!selectedCard) return;
+    handleCardPlay(selectedCard, zone);
   };
 
   const handleEndTurn = async () => {
@@ -459,12 +469,6 @@ export default function MarioGamePage() {
 
   // Active game view
   const isMyTurn = gameState?.current_turn_player_id === playerId;
-  const currentPlayerBoard = currentPlayer?.board || {
-    "mario-bros": { heroes: [], collectables: [] },
-    "mushroom-kingdom": { heroes: [], collectables: [] },
-    "kong-island": { heroes: [], collectables: [] },
-    "bowsers-castle": { heroes: [], collectables: [], monsters: [] },
-  };
   const currentPlayerHand = currentPlayer?.hand || [];
 
   // DISPLAY MODE - Shared screen shows all boards, no hands
@@ -504,25 +508,18 @@ export default function MarioGamePage() {
               />
             )}
 
-            {/* All Players' Boards */}
-            {players.map((player) => {
-              const playerBoard = player.board || {
-                "mario-bros": { heroes: [], collectables: [] },
-                "mushroom-kingdom": { heroes: [], collectables: [] },
-                "kong-island": { heroes: [], collectables: [] },
-                "bowsers-castle": { heroes: [], collectables: [], monsters: [] },
-              };
-
-              return (
-                <PlayerBoard
-                  key={player.player_id}
-                  playerId={player.player_id}
-                  playerName={player.player_name || "Unknown Player"}
-                  board={playerBoard}
-                  isCurrentPlayer={false}
-                />
-              );
-            })}
+            {/* Every mat at once, seen from above */}
+            <TableView
+              seats={players.map<Seat>((player, i) => ({
+                id: player.player_id,
+                name: player.player_name || `Player ${i + 1}`,
+                colour: player.player_color || PLAYER_COLORS[i % PLAYER_COLORS.length].primary,
+                board: toMatBoard(player.board),
+                isTurn: gameState?.current_turn_player_id === player.player_id,
+              }))}
+              deckCount={gameState?.deck?.length}
+              discardCount={gameState?.discard_pile?.length}
+            />
           </Stack>
         </Container>
       </Box>
@@ -585,16 +582,58 @@ export default function MarioGamePage() {
             hand={currentPlayerHand}
             playerId={playerId}
             isCurrentPlayer={true}
+            selectedCard={selectedCard}
+            onCardTap={(card) => {
+              setSelectedCard((prev) => {
+                const next = prev === card ? null : card;
+                if (next) {
+                  document
+                    .getElementById("my-mat")
+                    ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+                return next;
+              });
+            }}
           />
 
-          {/* Player's Own Board */}
-          <PlayerBoard
-            playerId={playerId}
-            playerName={currentPlayer?.player_name || "You"}
-            board={currentPlayerBoard}
-            isCurrentPlayer={true}
-            onCardDrop={handleCardPlay}
-          />
+          {/* What to do next, in one line that changes as you go */}
+          <Paper
+            sx={{
+              px: 2,
+              py: 1.5,
+              textAlign: "center",
+              borderColor: selectedCard ? TABLE.brass : undefined,
+            }}
+          >
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              {!isMyTurn
+                ? "Waiting for your turn."
+                : selectedCard
+                  ? "Now tap a zone on your mat to play it — or tap the card again to put it back."
+                  : "Tap a card in your hand to pick it up."}
+            </Typography>
+          </Paper>
+
+          {/* Player's Own Mat */}
+          <Box
+            id="my-mat"
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              overflowX: "auto",
+              scrollMarginTop: 16,
+            }}
+          >
+            <PlayMat
+              board={toMatBoard(currentPlayer?.board)}
+              name={currentPlayer?.player_name || "You"}
+              colour={currentPlayer?.player_color || TABLE.cyan}
+              cardWidth={64}
+              armed={Boolean(selectedCard) && isMyTurn}
+              onZoneChoose={handleZoneChoose}
+              onZoneDropCard={(zone, card) => handleCardPlay(card, zone)}
+            />
+          </Box>
 
           {/* Steal Dialog */}
           <StealDialog

@@ -26,6 +26,9 @@ export type MatBoard = {
   monsters: GameCard[];
 };
 
+/** Where a card can be played: a house, or the temporary row on top. */
+export type MatZone = MainHouse | "in-play";
+
 export const HOUSE_ORDER: MainHouse[] = [
   "mario-bros",
   "mushroom-kingdom",
@@ -56,6 +59,10 @@ function CardStack({
   width,
   minCards = 3,
   maxVisible,
+  armed = false,
+  zone,
+  onChoose,
+  onDropCard,
   onCardClick,
 }: {
   cards: GameCard[];
@@ -64,6 +71,13 @@ function CardStack({
   minCards?: number;
   /** Cap the peek so a deep pile cannot stretch the mat off the table. */
   maxVisible?: number;
+  /** A card is waiting to be placed, so this zone is a live target. */
+  armed?: boolean;
+  /** Which zone this is, so a drop knows where it landed. */
+  zone?: MatZone;
+  onChoose?: () => void;
+  /** A card dragged from the hand carries itself in the drag event. */
+  onDropCard?: (card: GameCard) => void;
   onCardClick?: (card: GameCard) => void;
 }) {
   const cardHeight = width * 1.4;
@@ -76,15 +90,51 @@ function CardStack({
   const height = cardHeight + peek * (slots - 1);
 
   return (
-    <Box sx={{ position: "relative", width, height, flexShrink: 0 }}>
+    <Box
+      data-zone={zone}
+      onClick={onChoose}
+      onDragOver={
+        onDropCard ? (e: React.DragEvent) => e.preventDefault() : undefined
+      }
+      onDrop={
+        onDropCard
+          ? (e: React.DragEvent) => {
+              e.preventDefault();
+              const raw = e.dataTransfer?.getData("application/json");
+              if (!raw) return;
+              try {
+                onDropCard(JSON.parse(raw) as GameCard);
+              } catch {
+                // A drag from somewhere else; nothing to play.
+              }
+            }
+          : undefined
+      }
+      sx={{
+        position: "relative",
+        width,
+        height,
+        flexShrink: 0,
+        cursor: armed ? "pointer" : undefined,
+      }}
+    >
       {/* The printed outline of the zone on the mat. */}
       <Box
         sx={{
           position: "absolute",
           inset: 0,
           borderRadius: 1.5,
-          border: `1px dashed ${tint}55`,
-          background: `linear-gradient(180deg, ${tint}14, transparent 70%)`,
+          border: armed ? `2px solid ${tint}` : `1px dashed ${tint}55`,
+          background: armed
+            ? `linear-gradient(180deg, ${tint}44, ${tint}18 70%)`
+            : `linear-gradient(180deg, ${tint}14, transparent 70%)`,
+          boxShadow: armed ? `0 0 0 4px ${tint}33` : undefined,
+          transition: "border-color 160ms ease, box-shadow 160ms ease",
+          "@keyframes matZonePulse": {
+            "0%, 100%": { opacity: 1 },
+            "50%": { opacity: 0.55 },
+          },
+          animation: armed ? "matZonePulse 1.6s ease-in-out infinite" : undefined,
         }}
       />
       {cards.length > 1 && (
@@ -176,6 +226,9 @@ export function PlayMat({
   cardWidth = 64,
   dimmed = false,
   maxVisible,
+  armed = false,
+  onZoneChoose,
+  onZoneDropCard,
   onCardClick,
 }: {
   board: MatBoard;
@@ -184,8 +237,16 @@ export function PlayMat({
   cardWidth?: number;
   dimmed?: boolean;
   maxVisible?: number;
+  /** A card is selected and every zone is a live target. */
+  armed?: boolean;
+  onZoneChoose?: (zone: MatZone) => void;
+  onZoneDropCard?: (zone: MatZone, card: GameCard) => void;
   onCardClick?: (card: GameCard) => void;
 }) {
+  const target = (zone: MatZone) =>
+    onZoneChoose ? () => onZoneChoose(zone) : undefined;
+  const dropped = (zone: MatZone) =>
+    onZoneDropCard ? (card: GameCard) => onZoneDropCard(zone, card) : undefined;
   const gap = Math.round(cardWidth * 0.14);
 
   return (
@@ -243,6 +304,10 @@ export function PlayMat({
             tint={TABLE.brass}
             width={cardWidth}
             minCards={1}
+            armed={armed}
+            zone="in-play"
+            onChoose={target("in-play")}
+            onDropCard={dropped("in-play")}
             onCardClick={onCardClick}
           />
         </Stack>
@@ -257,6 +322,10 @@ export function PlayMat({
                 tint={HOUSE_TINT[house]}
                 width={cardWidth}
                 maxVisible={maxVisible}
+                armed={armed}
+                zone={house}
+                onChoose={target(house)}
+                onDropCard={dropped(house)}
                 onCardClick={onCardClick}
               />
             </Stack>
@@ -273,6 +342,10 @@ export function PlayMat({
                   tint={HOUSE_TINT[house]}
                   width={cardWidth}
                   maxVisible={maxVisible}
+                  armed={armed}
+                  zone={house}
+                  onChoose={target(house)}
+                  onDropCard={dropped(house)}
                   onCardClick={onCardClick}
                 />
               </Stack>
@@ -294,6 +367,10 @@ export function PlayMat({
                 tint={HOUSE_TINT["bowsers-castle"]}
                 width={cardWidth}
                 maxVisible={maxVisible}
+                armed={armed}
+                zone="bowsers-castle"
+                onChoose={target("bowsers-castle")}
+                onDropCard={dropped("bowsers-castle")}
                 onCardClick={onCardClick}
               />
               <CardStack

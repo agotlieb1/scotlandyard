@@ -10,7 +10,9 @@ import {
   Typography,
 } from "@mui/material";
 
-import { PlayMat, type MatBoard } from "../components/PlayMat";
+import { PlayMat, type MatBoard, type MatZone } from "../components/PlayMat";
+import { PlayerHand } from "../components/PlayerHand";
+import type { GameCard } from "../types";
 import { TableView, type Seat } from "../components/TableView";
 import { COLLECTABLE_CARDS, HERO_CARDS } from "../card-library";
 import { MONSTER_CARDS, POWERUP_CARDS } from "../card-data";
@@ -57,6 +59,49 @@ export default function TablePreviewPage() {
   const [seatCount, setSeatCount] = useState(4);
   const [rotateSeats, setRotateSeats] = useState(true);
   const [corners, setCorners] = useState<boolean | undefined>(undefined);
+
+  // A hand and a mat that answer to taps, so the flow the live board uses can
+  // be tried here with no game behind it.
+  const [hand, setHand] = useState<GameCard[]>([
+    HERO_CARDS[0],
+    HERO_CARDS[8],
+    COLLECTABLE_CARDS[0],
+    MONSTER_CARDS[3],
+    POWERUP_CARDS[0],
+  ]);
+  const [picked, setPicked] = useState<GameCard | null>(null);
+  const [myBoard, setMyBoard] = useState<MatBoard>(board(2));
+
+  const place = (zone: MatZone, card?: GameCard) => {
+    const playing = card ?? picked;
+    if (!playing) return;
+    setMyBoard((prev) => {
+      const next: MatBoard = {
+        inPlay: [...prev.inPlay],
+        heroes: { ...prev.heroes },
+        collectables: { ...prev.collectables },
+        monsters: [...prev.monsters],
+      };
+      if (zone === "in-play") {
+        next.inPlay = [...next.inPlay, playing];
+      } else if (playing.type === "monster" && zone === "bowsers-castle") {
+        next.monsters = [...next.monsters, playing];
+      } else if (playing.type === "collectable" && zone !== "bowsers-castle") {
+        next.collectables = {
+          ...next.collectables,
+          [zone]: [...(next.collectables[zone] ?? []), playing],
+        };
+      } else {
+        next.heroes = {
+          ...next.heroes,
+          [zone]: [...(next.heroes[zone] ?? []), playing],
+        };
+      }
+      return next;
+    });
+    setHand((prev) => prev.filter((c) => c !== playing));
+    setPicked(null);
+  };
 
   const seats: Seat[] = PLAYERS.slice(0, seatCount).map((p, i) => ({
     ...p,
@@ -142,16 +187,38 @@ export default function TablePreviewPage() {
         </Typography>
 
         <Stack spacing={2}>
-          <Typography variant="h6">One mat, full size</Typography>
+          <Typography variant="h6">Your own mat, and playing onto it</Typography>
           <Typography variant="body2" color="text.secondary">
-            What a player sees of their own board on a phone or laptop.
+            The same thing the live board shows a player: tap a card to pick it
+            up, tap a zone to put it down. This copy keeps its cards in the
+            page rather than in the game, so it can be tried without one.
           </Typography>
-          <Box sx={{ overflowX: "auto", pb: 1 }}>
+          <PlayerHand
+            hand={hand}
+            playerId="preview"
+            isCurrentPlayer
+            selectedCard={picked}
+            onCardTap={(card) =>
+              setPicked((prev) => {
+                const next = prev === card ? null : card;
+                if (next) {
+                  document
+                    .getElementById("my-mat")
+                    ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+                return next;
+              })
+            }
+          />
+          <Box id="my-mat" sx={{ overflowX: "auto", pb: 1 }}>
             <PlayMat
-              board={board(2)}
+              board={myBoard}
               name="Aaron"
               colour="#e74c3c"
-              cardWidth={76}
+              cardWidth={64}
+              armed={Boolean(picked)}
+              onZoneChoose={place}
+              onZoneDropCard={(zone, card) => place(zone, card)}
             />
           </Box>
         </Stack>

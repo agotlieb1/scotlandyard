@@ -261,11 +261,13 @@ export async function stealCard(
 /**
  * Play a card from hand to a board
  */
+export type PlayTarget = MainHouse | "in-play";
+
 export async function playCard(
   gameCode: string,
   playerId: string,
   card: GameCard,
-  targetHouse: MainHouse
+  targetHouse: PlayTarget
 ) {
   const supabase = getSupabaseClient();
   if (!supabase) {
@@ -305,22 +307,30 @@ export async function playCard(
     "bowsers-castle": { heroes: [], collectables: [], monsters: [] },
   };
 
-  // Determine which category the card belongs to
   const newBoard = { ...board };
-  const houseBoard = { ...newBoard[targetHouse] };
 
-  if (card.type === "hero") {
-    houseBoard.heroes = [...(houseBoard.heroes || []), card];
-  } else if (card.type === "collectable") {
-    houseBoard.collectables = [...(houseBoard.collectables || []), card];
-  } else if (card.type === "monster" && targetHouse === "bowsers-castle") {
-    houseBoard.monsters = [...(houseBoard.monsters || []), card];
+  if (targetHouse === "in-play") {
+    // The temporary row at the top of the mat: a Piranha Plant, a Star, a
+    // mini-game. Nothing lives here for long, so it is its own list rather
+    // than part of a house.
+    newBoard.inPlay = [...(newBoard.inPlay || []), card];
   } else {
-    // For power-ups, trophies, etc., add to heroes array for now
-    houseBoard.heroes = [...(houseBoard.heroes || []), card];
-  }
+    // Determine which category the card belongs to
+    const houseBoard = { ...newBoard[targetHouse] };
 
-  newBoard[targetHouse] = houseBoard;
+    if (card.type === "hero") {
+      houseBoard.heroes = [...(houseBoard.heroes || []), card];
+    } else if (card.type === "collectable") {
+      houseBoard.collectables = [...(houseBoard.collectables || []), card];
+    } else if (card.type === "monster" && targetHouse === "bowsers-castle") {
+      houseBoard.monsters = [...(houseBoard.monsters || []), card];
+    } else {
+      // For power-ups, trophies, etc., add to heroes array for now
+      houseBoard.heroes = [...(houseBoard.heroes || []), card];
+    }
+
+    newBoard[targetHouse] = houseBoard;
+  }
 
   // Update player
   const { error: updateError } = await supabase
