@@ -15,7 +15,13 @@ import {
 } from "@mui/material";
 
 import type { GameCard } from "../types";
-import { HOUSE_SHORT, toMatBoard, type CardRef, type MatZone } from "./PlayMat";
+import {
+  HOUSE_SHORT,
+  toMatBoard,
+  type CardRef,
+  type MatRow,
+  type MatZone,
+} from "./PlayMat";
 import { cardLabel } from "./PendingActionBar";
 import type { PlayerBoard } from "@/lib/mario-types";
 import { TABLE } from "../theme";
@@ -30,23 +36,32 @@ export type TargetablePlayer = {
 type Row = { ref: CardRef; where: string };
 
 /** Everything on a mat, as a flat list you can read down. */
-function cardsOnMat(player: TargetablePlayer): Row[] {
+export function cardsOnMat(
+  player: TargetablePlayer,
+  only?: (card: GameCard) => boolean
+): Row[] {
   const mat = toMatBoard(player.board);
   const rows: Row[] = [];
-  const push = (zone: MatZone, where: string, cards: GameCard[]) =>
-    cards.forEach((card, index) =>
-      rows.push({ ref: { playerId: player.id, zone, index, card }, where })
-    );
+  const push = (zone: MatZone, row: MatRow, where: string, cards: GameCard[]) =>
+    cards.forEach((card, index) => {
+      if (only && !only(card)) return;
+      rows.push({ ref: { playerId: player.id, zone, row, index, card }, where });
+    });
 
-  push("in-play", "In play", mat.inPlay);
+  push("in-play", "in-play", "In play", mat.inPlay);
   (Object.keys(mat.heroes) as (keyof typeof mat.heroes)[]).forEach((house) =>
-    push(house, `${HOUSE_SHORT[house]} heroes`, mat.heroes[house])
+    push(house, "heroes", `${HOUSE_SHORT[house]} heroes`, mat.heroes[house])
   );
   (Object.keys(mat.collectables) as (keyof typeof mat.collectables)[]).forEach(
     (house) =>
-      push(house, `${HOUSE_SHORT[house]} collectables`, mat.collectables[house])
+      push(
+        house,
+        "collectables",
+        `${HOUSE_SHORT[house]} collectables`,
+        mat.collectables[house]
+      )
   );
-  push("bowsers-castle", "Monsters", mat.monsters);
+  push("bowsers-castle", "monsters", "Monsters", mat.monsters);
   return rows;
 }
 

@@ -4,6 +4,7 @@ import { Box, Button, Stack, Typography } from "@mui/material";
 
 import type { GameCard } from "../types";
 import type { CardRef, MatZone } from "./PlayMat";
+import type { Play } from "@/lib/mario-card-effects";
 import { HOUSE_SHORT } from "./PlayMat";
 import { TABLE } from "../theme";
 
@@ -15,7 +16,9 @@ import { TABLE } from "../theme";
 export type PendingAction =
   | { kind: "play"; card: GameCard; zone: MatZone; targetPlayerId: string }
   | { kind: "aim"; card: GameCard; target: CardRef }
-  | { kind: "steal"; targetPlayerId: string };
+  | { kind: "steal"; targetPlayerId: string }
+  /** A card whose rules the app carries out, with its targets already chosen. */
+  | { kind: "effect"; card: GameCard; play: Play; label: string };
 
 /** A card in a few words, the way you would say it out loud. */
 export function cardLabel(card: GameCard): string {
@@ -63,6 +66,8 @@ export function describeAction(
       )} ${cardLabel(action.target.card)}`;
     case "steal":
       return `Steal a card from ${nameOf(action.targetPlayerId)}`;
+    case "effect":
+      return action.label;
   }
 }
 

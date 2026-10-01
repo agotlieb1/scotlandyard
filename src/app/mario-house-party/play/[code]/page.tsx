@@ -42,6 +42,13 @@ import {
 } from "@/app/mario-house-party/components/PendingActionBar";
 import { playCardOnPlayer } from "@/lib/mario-game-actions";
 import { TargetPicker } from "@/app/mario-house-party/components/TargetPicker";
+import { EffectWizard } from "@/app/mario-house-party/components/EffectWizard";
+import {
+  MonsterTapDialog,
+  MonsterTapList,
+} from "@/app/mario-house-party/components/MonsterTapDialog";
+import { playEffect, thwompLastAction } from "@/lib/mario-game-actions";
+import { requirementFor, type Play } from "@/lib/mario-card-effects";
 import { upsertMarioPlayer as saveSeat } from "@/lib/mario-games";
 import { TableView, type Seat } from "@/app/mario-house-party/components/TableView";
 import { TABLE } from "@/app/mario-house-party/theme";
@@ -82,6 +89,9 @@ export default function MarioGamePage() {
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [savingSeat, setSavingSeat] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [tapTarget, setTapTarget] = useState<CardRef | null>(null);
+  const [tapListOpen, setTapListOpen] = useState(false);
 
   // Initial load
   useEffect(() => {
@@ -276,7 +286,14 @@ export default function MarioGamePage() {
   };
 
   const handleCardChoose = (ref: CardRef) => {
-    if (!selectedCard) return;
+    // Nothing in hand: tapping your own monster is how its own ability is
+    // used.
+    if (!selectedCard) {
+      if (ref.playerId === playerId && ref.card.type === "monster") {
+        setTapTarget(ref);
+      }
+      return;
+    }
     setAimedAt(ref);
     // Show the mat the target is on, so the choice is visible as well as
     // written out in the bar.
@@ -292,6 +309,29 @@ export default function MarioGamePage() {
   const handleConfirm = async () => {
     if (!pending || actionLoading) return;
     setActionLoading(true);
+
+    if (pending.kind === "effect") {
+      const outcome =
+        pending.play.kind === "thwomp"
+          ? await thwompLastAction(code, playerId, pending.card)
+          : await playEffect(
+              code,
+              playerId,
+              pending.play,
+              // A tap uses a card already on the table; only a card played
+              // from hand leaves the hand.
+              pending.play.kind.startsWith("tap") ? undefined : pending.card
+            );
+      setActionLoading(false);
+      if ("error" in outcome) {
+        setError(outcome.error ?? "Unknown error");
+        setTimeout(() => setError(null), 4000);
+        return;
+      }
+      setSelectedCard(null);
+      clearPending();
+      return;
+    }
 
     const result =
       pending.kind === "steal"
@@ -760,14 +800,30 @@ export default function MarioGamePage() {
             </Typography>
           </Paper>
 
-          {selectedCard && isMyTurn && (
+          {!selectedCard && isMyTurn && (
             <Button
               variant="outlined"
-              onClick={() => setPickerOpen(true)}
+              onClick={() => setTapListOpen(true)}
               sx={{ alignSelf: "center" }}
             >
-              Choose a target from a list
+              Tap one of your monsters
             </Button>
+          )}
+
+          {selectedCard && isMyTurn && (
+            <Stack direction="row" spacing={1} sx={{ alignSelf: "center" }}>
+              {selectedCard.type === "powerup" ? (
+                <Button variant="contained" onClick={() => setWizardOpen(true)}>
+                  {requirementFor(selectedCard).kind === "none"
+                    ? `Play ${selectedCard.name}`
+                    : `${selectedCard.name}: ${requirementFor(selectedCard).kind === "cards" ? "pick targets" : "choose"}`}
+                </Button>
+              ) : (
+                <Button variant="outlined" onClick={() => setPickerOpen(true)}>
+                  Choose a target from a list
+                </Button>
+              )}
+            </Stack>
           )}
 
           {/* The mat you are looking at */}
@@ -794,7 +850,10 @@ export default function MarioGamePage() {
               playerId={viewedMatId}
               cardWidth={64}
               armed={Boolean(selectedCard) && isMyTurn}
-              aimAtCards={selectedCard?.type === "powerup"}
+              aimAtCards={
+                selectedCard?.type === "powerup" ||
+                (!selectedCard && viewedMatId === playerId && isMyTurn)
+              }
               aimedAt={aimedAt}
               onZoneChoose={(zone) => handleZoneChoose(zone, viewedMatId)}
               onZoneDropCard={(zone, card) =>
@@ -808,6 +867,63 @@ export default function MarioGamePage() {
               onCardChoose={handleCardChoose}
             />
           </Box>
+
+          <MonsterTapList
+            open={tapListOpen}
+            you={{
+              id: playerId,
+              name: currentPlayer?.player_name || "You",
+              colour: TABLE.cyan,
+              board: currentPlayer?.board,
+            }}
+            onClose={() => setTapListOpen(false)}
+            onPick={setTapTarget}
+          />
+
+          <MonsterTapDialog
+            target={tapTarget}
+            youId={playerId}
+            players={players.map((p, i) => ({
+              id: p.player_id,
+              name:
+                p.player_id === playerId
+                  ? p.player_name || "You"
+                  : p.player_name || `Player ${i + 1}`,
+              colour:
+                PLAYER_COLORS.find((c) => c.key === p.player_color)?.primary ||
+                TABLE.cyan,
+              board: p.board,
+            }))}
+            onClose={() => setTapTarget(null)}
+            onReady={(play: Play, label: string) => {
+              if (!tapTarget) return;
+              setPending({ kind: "effect", card: tapTarget.card, play, label });
+              setTapTarget(null);
+            }}
+          />
+
+          <EffectWizard
+            open={wizardOpen}
+            card={selectedCard}
+            youId={playerId}
+            discard={gameState?.discard_pile ?? []}
+            players={players.map((p, i) => ({
+              id: p.player_id,
+              name:
+                p.player_id === playerId
+                  ? p.player_name || "You"
+                  : p.player_name || `Player ${i + 1}`,
+              colour:
+                PLAYER_COLORS.find((c) => c.key === p.player_color)?.primary ||
+                TABLE.cyan,
+              board: p.board,
+            }))}
+            onClose={() => setWizardOpen(false)}
+            onReady={(play: Play, label: string) => {
+              if (!selectedCard) return;
+              setPending({ kind: "effect", card: selectedCard, play, label });
+            }}
+          />
 
           <TargetPicker
             open={pickerOpen}

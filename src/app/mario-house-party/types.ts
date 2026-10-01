@@ -38,6 +38,8 @@ export interface MysteryBoxCard {
 // Hero types
 export interface HeroCard {
   type: "hero";
+  /** A Tanuki Suit went on it: it cannot be destroyed, moved or stolen. */
+  invincible?: boolean;
   house: House;
   name?: string; // Character name (e.g., "Mario", "Peach")
   // Pledged house for Wa! cards

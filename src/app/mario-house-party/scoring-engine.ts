@@ -97,6 +97,8 @@ export function calculateScore(
       const monster = m.card as MonsterCard;
       // If this monster is canceled, skip it
       if (monster.canceledByHeroId) return;
+      // A Boo or Big Boo tapped face down "does not affect scoring".
+      if (monster.isHidden) return;
 
       monsterPenalty += monster.value; // Remember: monster.value is negative
     });

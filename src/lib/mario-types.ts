@@ -55,6 +55,34 @@ export type TurnAction = {
   targetPlayerId?: string; // For steal actions
 };
 
+/** What a card has left behind on the table: Star Power, Piranha Plants. */
+export type TableEffectsRow = {
+  /** Player id → the turn number after which their Star Power runs out. */
+  starPower: Record<string, number>;
+  /** Players who lose their next turn. */
+  skipNext: string[];
+  /** The 1 Up Mushroom bought this player the last turn of the game. */
+  endsAfter?: string;
+};
+
+/**
+ * Enough of the table to put it back, so Thwomp can reverse the last action.
+ * Whole rows rather than a diff: a board is small, and restoring one is
+ * exact where replaying a diff backwards would need every rule inverted.
+ */
+export type LastAction = {
+  byPlayerId: string;
+  label: string;
+  at: string;
+  before: {
+    seats: { playerId: string; hand: GameCard[]; board: PlayerBoard }[];
+    deck: GameCard[];
+    discard: GameCard[];
+    effects: TableEffectsRow;
+    actionsTaken: TurnAction[];
+  };
+};
+
 export type MarioGameState = {
   game_code: string;
   deck: GameCard[];
@@ -63,5 +91,9 @@ export type MarioGameState = {
   turn_number: number;
   actions_taken: TurnAction[]; // Track actions in current turn
   steal_used: boolean; // Track if steal has been used this turn
+  /** Absent on games that started before cards had lasting effects. */
+  effects?: TableEffectsRow;
+  /** Absent until something has been played that could be thwomped. */
+  last_action?: LastAction | null;
   updated_at: string;
 };

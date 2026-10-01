@@ -5,6 +5,7 @@ import {
   Box,
   Button,
   Container,
+  Paper,
   Stack,
   ToggleButton,
   ToggleButtonGroup,
@@ -15,12 +16,22 @@ import { PlayMat, type CardRef, type MatBoard, type MatZone } from "../component
 import { PlayerHand } from "../components/PlayerHand";
 import { SeatIdentity } from "../components/SeatIdentity";
 import { TargetPicker } from "../components/TargetPicker";
+import { EffectWizard } from "../components/EffectWizard";
+import { MonsterTapDialog, MonsterTapList } from "../components/MonsterTapDialog";
+import {
+  emptyEffects,
+  requirementFor,
+  resolve,
+  type Play,
+  type Table,
+} from "@/lib/mario-card-effects";
 import {
   PendingActionBar,
   describeAction,
   type PendingAction,
 } from "../components/PendingActionBar";
 import type { GameCard } from "../types";
+import type { PlayerBoard } from "@/lib/mario-types";
 import { TableView, type Seat } from "../components/TableView";
 import { COLLECTABLE_CARDS, HERO_CARDS } from "../card-library";
 import { MONSTER_CARDS, POWERUP_CARDS } from "../card-data";
@@ -95,12 +106,17 @@ export default function TablePreviewPage() {
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [me, setMe] = useState({ name: "Player 1", colour: "red" });
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [tapTarget, setTapTarget] = useState<CardRef | null>(null);
+  const [tapListOpen, setTapListOpen] = useState(false);
+  const [discard, setDiscard] = useState<GameCard[]>([MONSTER_CARDS[3]]);
+  const [note, setNote] = useState<string | null>(null);
 
   const nameOf = (id: string) => (id === "me" ? me.name : "Damond");
 
   // The picker takes a stored board, which is what the live game holds; the
   // harness keeps mat-shaped ones, so turn them back.
-  const asStored = (mat: MatBoard) => ({
+  const asStored = (mat: MatBoard): PlayerBoard => ({
     "mario-bros": {
       heroes: mat.heroes["mario-bros"],
       collectables: mat.collectables["mario-bros"],
@@ -151,13 +167,74 @@ export default function TablePreviewPage() {
     setPending({ kind: "play", card: playing, zone, targetPlayerId: viewedId });
   };
   const stageCard = (ref: CardRef) => {
-    if (!picked) return;
+    if (!picked) {
+      if (ref.playerId === "me" && ref.card.type === "monster") setTapTarget(ref);
+      return;
+    }
     setAimedAt(ref);
     setViewing(ref.playerId === "me" ? "me" : "them");
     setPending({ kind: "aim", card: picked, target: ref });
   };
+  // The engine hands back stored boards; the harness draws mat-shaped ones.
+  const toMat = (stored: PlayerBoard): MatBoard => ({
+    inPlay: stored.inPlay ?? [],
+    heroes: {
+      "mario-bros": stored["mario-bros"].heroes,
+      "mushroom-kingdom": stored["mushroom-kingdom"].heroes,
+      "kong-island": stored["kong-island"].heroes,
+      "bowsers-castle": stored["bowsers-castle"].heroes,
+    },
+    collectables: {
+      "mario-bros": stored["mario-bros"].collectables,
+      "mushroom-kingdom": stored["mushroom-kingdom"].collectables,
+      "kong-island": stored["kong-island"].collectables,
+    },
+    monsters: stored["bowsers-castle"].monsters,
+  });
+
+  const liveTable = (): Table => ({
+    seats: [
+      { playerId: "me", hand, board: asStored(myBoard) },
+      { playerId: "them", hand: [], board: asStored(theirBoard) },
+    ],
+    deck: HERO_CARDS.slice(20, 24),
+    discard,
+    effects: emptyEffects(),
+    turnPlayerId: "me",
+    turnNumber: 3,
+  });
+
+  const applyEffect = (play: Play) => {
+    const table = liveTable();
+    if (play.kind !== "tap-hide" && play.kind !== "tap-move" && play.kind !== "tap-to-deck") {
+      const seat = table.seats[0];
+      const at = seat.hand.findIndex((c) => c === pendingCard(play));
+      if (at !== -1) seat.hand.splice(at, 1);
+    }
+    const outcome = resolve(table, "me", play);
+    if (!outcome.ok) {
+      setNote(outcome.error);
+      return;
+    }
+    setHand(outcome.table.seats[0].hand);
+    setMyBoard(toMat(outcome.table.seats[0].board));
+    setTheirBoard(toMat(outcome.table.seats[1].board));
+    setDiscard(outcome.table.discard);
+    setNote(outcome.label);
+  };
+
+  const pendingCard = (play: Play): GameCard | undefined =>
+    "card" in play ? play.card : undefined;
+
   const confirm = () => {
     if (!pending) return;
+    if (pending.kind === "effect") {
+      applyEffect(pending.play);
+      setPicked(null);
+      setPending(null);
+      setAimedAt(null);
+      return;
+    }
     if (pending.kind === "play") {
       const put = pending.targetPlayerId === "me" ? setMyBoard : setTheirBoard;
       put((prev) => addTo(prev, pending.zone, pending.card));
@@ -295,6 +372,64 @@ export default function TablePreviewPage() {
             </Button>
           )}
 
+          {!picked && (
+            <Button variant="outlined" onClick={() => setTapListOpen(true)}>
+              Tap one of your monsters
+            </Button>
+          )}
+
+          <MonsterTapList
+            open={tapListOpen}
+            you={{ id: "me", name: me.name, colour: "#e74c3c", board: asStored(myBoard) }}
+            onClose={() => setTapListOpen(false)}
+            onPick={setTapTarget}
+          />
+
+          {picked?.type === "powerup" && (
+            <Button variant="contained" onClick={() => setWizardOpen(true)}>
+              {requirementFor(picked).kind === "none"
+                ? `Play ${picked.name}`
+                : `${picked.name}: choose targets`}
+            </Button>
+          )}
+
+          {note && (
+            <Paper sx={{ px: 2, py: 1.25 }}>
+              <Typography variant="body2">{note}</Typography>
+            </Paper>
+          )}
+
+          <EffectWizard
+            open={wizardOpen}
+            card={picked}
+            youId="me"
+            discard={discard}
+            players={[
+              { id: "me", name: me.name, colour: "#e74c3c", board: asStored(myBoard) },
+              { id: "them", name: "Damond", colour: "#3498db", board: asStored(theirBoard) },
+            ]}
+            onClose={() => setWizardOpen(false)}
+            onReady={(play, label) => {
+              if (!picked) return;
+              setPending({ kind: "effect", card: picked, play, label });
+            }}
+          />
+
+          <MonsterTapDialog
+            target={tapTarget}
+            youId="me"
+            players={[
+              { id: "me", name: me.name, colour: "#e74c3c", board: asStored(myBoard) },
+              { id: "them", name: "Damond", colour: "#3498db", board: asStored(theirBoard) },
+            ]}
+            onClose={() => setTapTarget(null)}
+            onReady={(play, label) => {
+              if (!tapTarget) return;
+              setPending({ kind: "effect", card: tapTarget.card, play, label });
+              setTapTarget(null);
+            }}
+          />
+
           <TargetPicker
             open={pickerOpen}
             card={picked}
@@ -341,7 +476,7 @@ export default function TablePreviewPage() {
               playerId={viewedId}
               cardWidth={64}
               armed={Boolean(picked)}
-              aimAtCards={picked?.type === "powerup"}
+              aimAtCards={picked?.type === "powerup" || (!picked && viewing === "me")}
               aimedAt={aimedAt}
               onZoneChoose={(zone) => stageZone(zone)}
               onZoneDropCard={(zone, card) => stageZone(zone, card)}

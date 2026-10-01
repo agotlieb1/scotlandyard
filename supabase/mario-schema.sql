@@ -71,8 +71,18 @@ create table if not exists mario_game_state (
   turn_number integer not null default 1,
   actions_taken jsonb not null default '[]'::jsonb,
   steal_used boolean not null default false,
+  -- Star Power and Piranha Plants outlive the action that played them.
+  effects jsonb not null default jsonb_build_object('starPower', '{}'::jsonb, 'skipNext', '[]'::jsonb),
+  -- Enough of the table to put it back, so Thwomp can reverse the last play.
+  last_action jsonb,
   updated_at timestamptz not null default now()
 );
+
+-- Games that started before cards had lasting effects simply have neither
+-- column; both default rather than needing a migration.
+alter table mario_game_state
+  add column if not exists effects jsonb not null default jsonb_build_object('starPower', '{}'::jsonb, 'skipNext', '[]'::jsonb),
+  add column if not exists last_action jsonb;
 
 alter table mario_games enable row level security;
 alter table mario_game_players enable row level security;

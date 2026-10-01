@@ -3,6 +3,7 @@
 import { Box, Stack, Typography } from "@mui/material";
 
 import type { GameCard, MainHouse } from "../types";
+import type { Spot } from "@/lib/mario-card-effects";
 import type { PlayerBoard } from "@/lib/mario-types";
 import { CardDisplay } from "./CardDisplay";
 import { TABLE } from "../theme";
@@ -30,12 +31,32 @@ export type MatBoard = {
 export type MatZone = MainHouse | "in-play";
 
 /** Enough to point at one card on one mat: whose, which zone, which card. */
+export type MatRow = "in-play" | "heroes" | "collectables" | "monsters";
+
 export type CardRef = {
   playerId: string;
   zone: MatZone;
+  row: MatRow;
   index: number;
   card: GameCard;
 };
+
+/** The same reference in the shape the rules engine takes. */
+export function toSpot(ref: CardRef): Spot {
+  switch (ref.row) {
+    case "in-play":
+      return { playerId: ref.playerId, row: "in-play", index: ref.index };
+    case "monsters":
+      return { playerId: ref.playerId, row: "monsters", index: ref.index };
+    default:
+      return {
+        playerId: ref.playerId,
+        row: ref.row,
+        house: ref.zone as MainHouse,
+        index: ref.index,
+      };
+  }
+}
 
 export const HOUSE_ORDER: MainHouse[] = [
   "mario-bros",
@@ -295,10 +316,10 @@ export function PlayMat({
     onZoneChoose ? () => onZoneChoose(zone) : undefined;
   const dropped = (zone: MatZone) =>
     onZoneDropCard ? (card: GameCard) => onZoneDropCard(zone, card) : undefined;
-  const pick = (zone: MatZone) =>
+  const pick = (zone: MatZone, row: MatRow) =>
     onCardChoose && aimAtCards
       ? (card: GameCard, index: number) =>
-          onCardChoose({ playerId, zone, index, card })
+          onCardChoose({ playerId, zone, row, index, card })
       : undefined;
   const aimed = (zone: MatZone) =>
     aimedAt && aimedAt.zone === zone && aimedAt.playerId === playerId
@@ -367,7 +388,7 @@ export function PlayMat({
             onChoose={target("in-play")}
             onDropCard={dropped("in-play")}
             selectedIndex={aimed("in-play")}
-            onCardClick={pick("in-play")}
+            onCardClick={pick("in-play", "in-play")}
           />
         </Stack>
 
@@ -387,7 +408,7 @@ export function PlayMat({
                 onChoose={target(house)}
                 onDropCard={dropped(house)}
                 selectedIndex={aimed(house)}
-                onCardClick={pick(house)}
+                onCardClick={pick(house, "heroes")}
               />
             </Stack>
           ))}
@@ -409,7 +430,7 @@ export function PlayMat({
                   onChoose={target(house)}
                   onDropCard={dropped(house)}
                   selectedIndex={aimed(house)}
-                  onCardClick={pick(house)}
+                  onCardClick={pick(house, "heroes")}
                 />
               </Stack>
             )
@@ -436,7 +457,7 @@ export function PlayMat({
                 onChoose={target("bowsers-castle")}
                 onDropCard={dropped("bowsers-castle")}
                 selectedIndex={aimed("bowsers-castle")}
-                onCardClick={pick("bowsers-castle")}
+                onCardClick={pick("bowsers-castle", "monsters")}
               />
               <CardStack
                 cards={[]}

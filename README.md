@@ -220,6 +220,45 @@ an HTML5 drag that could not work on a phone at all, which is to say the game
 could not be played on a phone before. `components/PlayerBoard.tsx` is what
 the mat replaced and is no longer used by anything.
 
+### What the cards do
+
+The rules live in `src/lib/mario-card-effects.ts` as pure functions over a
+snapshot of the table, so they can be run and checked without a game. They come
+from the card text, with the nuances settled by the table's owner:
+
+| Card | What the app does |
+| --- | --- |
+| Fire Flower | One card off any mat: a hero is shuffled back into the deck, anything else is discarded |
+| Red Shells | The same, three cards, for a single action |
+| Ice Flower | Freeze and slide in one action — pick a card, pick whose mat it lands on |
+| Warp Pipe | One card off any mat into your hand |
+| Gold Pipe | Two cards swap places; one of them may be from your hand |
+| Blue Shell | Every hero in one house on one mat is discarded, pledged Wa heroes included |
+| K.O. Hammer | Every monster on one mat is discarded — except Bob-omb |
+| Lakitu | Any card out of the discard pile into your hand |
+| Tanuki Suit | A hero becomes invincible; the suit stays with it rather than being discarded |
+| Star Power | Nobody can touch you or your board until the end of your next turn |
+| Piranha Plant | Sits on a mat, costs that player their next turn, and is eaten doing it |
+| Thwomp | Puts the table back as it was before the last action |
+| 1 Up Mushroom | Held, not played: when the game ends it buys its holder one more full turn |
+
+Monsters are tapped from your own mat, which also costs an action: Bob-omb and
+the two Koopas are thrown onto another mat, Boo and Big Boo hide and come back
+(a hidden one scores nothing), and Dry Bones is shuffled back into the deck.
+
+Three things cannot be touched by anyone but their owner: Bob-omb, a hero in a
+Tanuki Suit, and anything belonging to a player under Star Power. The app does
+not offer them as targets rather than refusing after the fact.
+
+Playing a card and tapping a monster each spend one of a turn's three actions.
+A buried card can be reached from a list rather than hunted for on the mat —
+"choose a target from a list" for a power-up, "tap one of your monsters" for a
+monster — because in a stack only the top card is fully exposed.
+
+Thwomp is why `mario_game_state` carries `last_action`: enough of the table to
+put it back, as whole rows rather than a diff, since restoring a row is exact
+where replaying a diff backwards would need every rule inverted.
+
 Online play lives at `/mario-house-party/play/setup` (create or join a game by
 code) and `/mario-house-party/play/[code]` (the board). A turn is three
 actions — play, tap, steal — with one steal per turn and only while you hold
