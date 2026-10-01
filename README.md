@@ -153,6 +153,34 @@ the palette and the hand cannot both be on screen, so a rail pinned to the
 bottom carries the card count and running total (the current player's name in
 Full Game mode, where scores stay hidden) with a button that jumps to the hand.
 
+### The play mat and the table
+
+`/mario-house-party/table-preview` shows the mat layout with cards dealt onto
+it and no database behind it, so it can be opened on any screen to judge the
+size of things.
+
+A mat is three rows, the way the game is played at the table: a temporary slot
+on top (a Piranha Plant, a Star, a mini-game), heroes in Mario / Mushroom /
+Kong / Koopa order, then collectables in that same order with a wider monster
+pen under Koopa. Cards in a zone stack like solitaire — each covers the one
+below but leaves its top edge showing — and a tally on the corner gives the
+true count when a pile runs deeper than the four cards that peek.
+
+`TableView` puts every mat on the shared screen at once, seen from above, each
+one turned so the top of the mat faces the middle. Seats are spaced by
+distance round an ellipse rather than by angle: equal angles bunch seats at
+the ends of the short axis, which is where mats used to collide. Seating round
+the corners rather than along the sides is the roomier choice at two and four
+players (clearance to the rail goes from -6px to +27px, and from +9px to
++33px) and the poorer one at six (+56px to +40px), so it defaults per seat
+count. Measured on a 16:10 screen at 1600px wide, nothing overlaps at any seat
+count from two to six.
+
+`toMatBoard` turns a stored `PlayerBoard` into what the mat wants, so the live
+game board can render one without reshaping anything. The stored board now
+carries `inPlay` for the temporary row; boards saved before it simply have no
+such key and read as an empty row, so there is nothing to migrate.
+
 Online play lives at `/mario-house-party/play/setup` (create or join a game by
 code) and `/mario-house-party/play/[code]` (the board). A turn is three
 actions — play, tap, steal — with one steal per turn and only while you hold

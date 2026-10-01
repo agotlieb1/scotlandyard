@@ -26,6 +26,12 @@ export type PlayerBoard = {
     collectables: GameCard[];
     monsters: GameCard[];
   };
+  /**
+   * The temporary row at the top of the mat: a Piranha Plant, a Star, a
+   * mini-game — whatever is in play right now and will not be there long.
+   * Optional, because boards saved before it existed do not carry it.
+   */
+  inPlay?: GameCard[];
 };
 
 export type MarioGamePlayer = {

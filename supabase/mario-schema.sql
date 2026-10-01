@@ -36,6 +36,7 @@ create table if not exists mario_game_players (
   player_color text not null,
   hand jsonb not null default '[]'::jsonb,
   board jsonb not null default jsonb_build_object(
+    'inPlay', '[]'::jsonb,
     'mario-bros', jsonb_build_object('heroes', '[]'::jsonb, 'collectables', '[]'::jsonb),
     'mushroom-kingdom', jsonb_build_object('heroes', '[]'::jsonb, 'collectables', '[]'::jsonb),
     'kong-island', jsonb_build_object('heroes', '[]'::jsonb, 'collectables', '[]'::jsonb),
@@ -44,6 +45,10 @@ create table if not exists mario_game_players (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Boards saved before the mat had a temporary row simply have no 'inPlay'
+-- key; the app reads a missing key as an empty row, so there is nothing to
+-- migrate.
 
 -- upsertMarioPlayer passes onConflict "game_code,player_id", so this index is
 -- what makes rejoining from the same device update the seat instead of adding
