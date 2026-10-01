@@ -196,11 +196,15 @@ On a phone a player can:
   into their temporary row. `playCardOnPlayer` writes their board first and
   your hand second, so a failure half way leaves the card in your hand rather
   than nowhere.
-- **aim a power-up at a card** — while a power-up is held, the cards on the
-  mat become targets too. Only a power-up does this: a pile of cards would
-  otherwise swallow every tap meant for the zone underneath it. In a stack
-  only the top card is fully exposed, so a buried card is aimed at by its
-  peeking strip, the same as reaching into a real pile.
+- **aim a power-up at a card**, either way round. While a power-up is held,
+  the cards on the mat become targets — only a power-up does this, or a pile
+  of cards would swallow every tap meant for the zone underneath it. But a
+  card buried in a stack only shows its peeking strip, so **Choose a target
+  from a list** does the same job in words: pick a player, then pick a card by
+  name and where it sits ("Mario — Marios heroes"), or "their mat, no
+  particular card" to play it into their In play row. Choosing from the list
+  switches the view to that player's mat, so the aim is visible as well as
+  written down.
 - **think again** — nothing is written until Confirm. Every play, steal and
   aim is staged in `PendingActionBar`, which reads the action back in words
   ("Play Mario into Damond's Koopas", "Use Fire Flower on Damond's

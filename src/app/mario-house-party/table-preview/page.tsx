@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   Box,
+  Button,
   Container,
   Stack,
   ToggleButton,
@@ -13,6 +14,7 @@ import {
 import { PlayMat, type CardRef, type MatBoard, type MatZone } from "../components/PlayMat";
 import { PlayerHand } from "../components/PlayerHand";
 import { SeatIdentity } from "../components/SeatIdentity";
+import { TargetPicker } from "../components/TargetPicker";
 import {
   PendingActionBar,
   describeAction,
@@ -92,8 +94,32 @@ export default function TablePreviewPage() {
   const [aimedAt, setAimedAt] = useState<CardRef | null>(null);
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [me, setMe] = useState({ name: "Player 1", colour: "red" });
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const nameOf = (id: string) => (id === "me" ? me.name : "Damond");
+
+  // The picker takes a stored board, which is what the live game holds; the
+  // harness keeps mat-shaped ones, so turn them back.
+  const asStored = (mat: MatBoard) => ({
+    "mario-bros": {
+      heroes: mat.heroes["mario-bros"],
+      collectables: mat.collectables["mario-bros"],
+    },
+    "mushroom-kingdom": {
+      heroes: mat.heroes["mushroom-kingdom"],
+      collectables: mat.collectables["mushroom-kingdom"],
+    },
+    "kong-island": {
+      heroes: mat.heroes["kong-island"],
+      collectables: mat.collectables["kong-island"],
+    },
+    "bowsers-castle": {
+      heroes: mat.heroes["bowsers-castle"],
+      collectables: [],
+      monsters: mat.monsters,
+    },
+    inPlay: mat.inPlay,
+  });
   const viewedId = viewing === "me" ? "me" : "them";
 
   const addTo = (prev: MatBoard, zone: MatZone, card: GameCard): MatBoard => {
@@ -127,6 +153,7 @@ export default function TablePreviewPage() {
   const stageCard = (ref: CardRef) => {
     if (!picked) return;
     setAimedAt(ref);
+    setViewing(ref.playerId === "me" ? "me" : "them");
     setPending({ kind: "aim", card: picked, target: ref });
   };
   const confirm = () => {
@@ -260,6 +287,33 @@ export default function TablePreviewPage() {
                 return next;
               })
             }
+          />
+
+          {picked && (
+            <Button variant="outlined" onClick={() => setPickerOpen(true)}>
+              Choose a target from a list
+            </Button>
+          )}
+
+          <TargetPicker
+            open={pickerOpen}
+            card={picked}
+            youId="me"
+            players={[
+              { id: "me", name: me.name, colour: "#e74c3c", board: asStored(myBoard) },
+              { id: "them", name: "Damond", colour: "#3498db", board: asStored(theirBoard) },
+            ]}
+            onClose={() => setPickerOpen(false)}
+            onChooseCard={stageCard}
+            onChoosePlayer={(targetPlayerId) => {
+              if (!picked) return;
+              setPending({
+                kind: "play",
+                card: picked,
+                zone: "in-play",
+                targetPlayerId,
+              });
+            }}
           />
 
           <Stack direction="row" spacing={1}>

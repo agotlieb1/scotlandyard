@@ -145,6 +145,18 @@ const marioTheme = createTheme({
         notchedOutline: { borderColor: "rgba(217, 182, 95, 0.28)" },
       },
     },
+    MuiDialog: {
+      styleOverrides: {
+        // Panels are translucent inlays in the felt, but a dialog is a thing
+        // held up in front of the table and has to be read, not seen through.
+        paper: {
+          backgroundColor: "rgba(6, 26, 36, 0.97)",
+          backgroundImage: `linear-gradient(180deg, ${TABLE.brass}14, transparent 40%)`,
+          border: `1px solid ${TABLE.brass}55`,
+          backdropFilter: "none",
+        },
+      },
+    },
     MuiAccordion: {
       styleOverrides: {
         root: {

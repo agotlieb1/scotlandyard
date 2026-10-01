@@ -41,6 +41,7 @@ import {
   type PendingAction,
 } from "@/app/mario-house-party/components/PendingActionBar";
 import { playCardOnPlayer } from "@/lib/mario-game-actions";
+import { TargetPicker } from "@/app/mario-house-party/components/TargetPicker";
 import { upsertMarioPlayer as saveSeat } from "@/lib/mario-games";
 import { TableView, type Seat } from "@/app/mario-house-party/components/TableView";
 import { TABLE } from "@/app/mario-house-party/theme";
@@ -80,6 +81,7 @@ export default function MarioGamePage() {
   // Nothing reaches the table until this is confirmed.
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [savingSeat, setSavingSeat] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   // Initial load
   useEffect(() => {
@@ -276,6 +278,9 @@ export default function MarioGamePage() {
   const handleCardChoose = (ref: CardRef) => {
     if (!selectedCard) return;
     setAimedAt(ref);
+    // Show the mat the target is on, so the choice is visible as well as
+    // written out in the bar.
+    setViewedPlayerId(ref.playerId);
     setPending({ kind: "aim", card: selectedCard, target: ref });
   };
 
@@ -755,6 +760,16 @@ export default function MarioGamePage() {
             </Typography>
           </Paper>
 
+          {selectedCard && isMyTurn && (
+            <Button
+              variant="outlined"
+              onClick={() => setPickerOpen(true)}
+              sx={{ alignSelf: "center" }}
+            >
+              Choose a target from a list
+            </Button>
+          )}
+
           {/* The mat you are looking at */}
           <Box
             id="my-mat"
@@ -793,6 +808,34 @@ export default function MarioGamePage() {
               onCardChoose={handleCardChoose}
             />
           </Box>
+
+          <TargetPicker
+            open={pickerOpen}
+            card={selectedCard}
+            youId={playerId}
+            players={players.map((p, i) => ({
+              id: p.player_id,
+              name:
+                p.player_id === playerId
+                  ? `${p.player_name || "You"}`
+                  : p.player_name || `Player ${i + 1}`,
+              colour:
+                PLAYER_COLORS.find((c) => c.key === p.player_color)?.primary ||
+                TABLE.cyan,
+              board: p.board,
+            }))}
+            onClose={() => setPickerOpen(false)}
+            onChooseCard={handleCardChoose}
+            onChoosePlayer={(targetPlayerId) => {
+              if (!selectedCard) return;
+              setPending({
+                kind: "play",
+                card: selectedCard,
+                zone: "in-play",
+                targetPlayerId,
+              });
+            }}
+          />
 
           {/* Steal Dialog */}
           <StealDialog
