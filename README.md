@@ -133,10 +133,10 @@ Two marks, cut out of the source artwork for different jobs:
 
 A companion for the physical card game: tap or drag cards into a scoring zone
 and it totals collectables, heroes, monsters and trophies, with a card
-reference alongside. The card art lives in `public/cards/` — 73 files across
-five folders, listed exactly in `public/cards/README.md`. Any card whose image
-is missing falls back to a drawn card with its name and value, so the
-calculator works with no art at all.
+reference alongside. The card art lives in `public/cards/` — 73 WebP files
+across five folders, listed exactly in `public/cards/README.md`. Any card whose
+image is missing falls back to a drawn card with its name and value, so the
+calculator still works if one is absent.
 
 Online play lives at `/mario-house-party/play/setup` (create or join a game by
 code) and `/mario-house-party/play/[code]` (the board). A turn is three

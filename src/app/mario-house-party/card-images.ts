@@ -47,11 +47,11 @@ const monsterCounters: Record<number, number> = {
 export function getCardImagePath(card: GameCard): string | null {
   if (card.type === "collectable") {
     const houseCode = HOUSE_CODES[card.house];
-    return `/cards/collectables/${houseCode}-${card.value}.png`;
+    return `/cards/collectables/${houseCode}-${card.value}.webp`;
   }
 
   if (card.type === "mystery-box") {
-    return `/cards/collectables/MysteryBox.png`;
+    return `/cards/collectables/MysteryBox.webp`;
   }
 
   if (card.type === "hero") {
@@ -59,7 +59,7 @@ export function getCardImagePath(card: GameCard): string | null {
 
     // Use the specific hero name if provided
     if (card.name) {
-      return `/cards/heroes/${houseCode}-${card.name}.png`;
+      return `/cards/heroes/${houseCode}-${card.name}.webp`;
     }
 
     // Fallback: cycle through available hero names for this house
@@ -71,7 +71,7 @@ export function getCardImagePath(card: GameCard): string | null {
     const heroName = heroList[heroCounters[card.house] % heroList.length];
     heroCounters[card.house]++;
 
-    return `/cards/heroes/${houseCode}-${heroName}.png`;
+    return `/cards/heroes/${houseCode}-${heroName}.webp`;
   }
 
   if (card.type === "monster") {
@@ -81,12 +81,12 @@ export function getCardImagePath(card: GameCard): string | null {
     }
 
     if (card.isBobOmb) {
-      return `/cards/monsters/Bob-omb.png`;
+      return `/cards/monsters/Bob-omb.webp`;
     }
 
     // Use the specific monster name if provided
     if (card.name) {
-      return `/cards/monsters/M-${card.name}.png`;
+      return `/cards/monsters/M-${card.name}.webp`;
     }
 
     // Fallback: cycle through available monster names for this point value
@@ -100,7 +100,7 @@ export function getCardImagePath(card: GameCard): string | null {
     const monsterName = monsterList[monsterCounters[pointValue] % monsterList.length];
     monsterCounters[pointValue]++;
 
-    return `/cards/monsters/M-${monsterName}.png`;
+    return `/cards/monsters/M-${monsterName}.webp`;
   }
 
   if (card.type === "powerup") {
@@ -111,12 +111,12 @@ export function getCardImagePath(card: GameCard): string | null {
   if (card.type === "trophy") {
     if (card.isHouseTrophy && card.house) {
       const houseCode = HOUSE_CODES[card.house];
-      return `/cards/trophies/${houseCode}-HouseCup.png`;
+      return `/cards/trophies/${houseCode}-HouseCup.webp`;
     }
 
     // For other trophies, use the exact name from the card
     const fileName = card.name.replace(/\s+/g, "");
-    return `/cards/trophies/${fileName}.png`;
+    return `/cards/trophies/${fileName}.webp`;
   }
 
   return null;
