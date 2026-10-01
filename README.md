@@ -138,6 +138,21 @@ across five folders, listed exactly in `public/cards/README.md`. Any card whose
 image is missing falls back to a drawn card with its name and value, so the
 calculator still works if one is absent.
 
+The pages are dressed as a card table — felt, a dark rail, brass on the
+fittings — through a theme nested in `mario-house-party/layout.tsx`, the same
+way Down4 nests its own. Cards carry a printed white edge and a real shadow, so
+they sit on the felt rather than in boxes.
+
+**On a phone, tapping is the gesture.** Tap a card to deal it in, tap it again
+to take it back. Dragging also works, after a short press: the sensors are
+split so a mouse drags on an 8px move while a finger needs to hold still for
+180ms first, which leaves quick taps and scroll swipes alone. A single
+PointerSensor could not drag on touch at all — the browser claimed the gesture
+before dnd-kit saw it. Even fixed, dragging is awkward on a small screen, since
+the palette and the hand cannot both be on screen, so a rail pinned to the
+bottom carries the card count and running total (the current player's name in
+Full Game mode, where scores stay hidden) with a button that jumps to the hand.
+
 Online play lives at `/mario-house-party/play/setup` (create or join a game by
 code) and `/mario-house-party/play/[code]` (the board). A turn is three
 actions — play, tap, steal — with one steal per turn and only while you hold

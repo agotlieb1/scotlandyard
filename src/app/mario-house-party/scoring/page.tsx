@@ -23,7 +23,8 @@ import {
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
@@ -44,6 +45,7 @@ import { MysteryBoxControls } from "../components/MysteryBoxControls";
 import { HeroMonsterControls } from "../components/HeroMonsterControls";
 import { WaHeroControls } from "../components/WaHeroControls";
 import { calculateScore } from "../scoring-engine";
+import { TABLE } from "../theme";
 import type { MysteryBoxCard, HeroCard, MonsterCard, MainHouse } from "../types";
 
 // Player colors for Full Game mode
@@ -55,6 +57,91 @@ const PLAYER_COLORS = [
   { primary: "#9b59b6", secondary: "#8e44ad", name: "Purple" }, // Purple
   { primary: "#1abc9c", secondary: "#16a085", name: "Teal" }, // Teal
 ];
+
+/**
+ * The running total, pinned to the bottom of a phone screen. The palette and
+ * the hand cannot both be on screen at that size, so without this a tap looks
+ * like it did nothing. Hidden once the layout is wide enough to show both.
+ */
+function ScoreRail({
+  cardCount,
+  total,
+  label,
+}: {
+  cardCount: number;
+  total?: number;
+  label?: string;
+}) {
+  return (
+    <Box
+      sx={{
+        display: { xs: "flex", lg: "none" },
+        position: "fixed",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 1200,
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 2,
+        px: 2.5,
+        py: 1.5,
+        pb: "calc(12px + env(safe-area-inset-bottom))",
+        borderTop: `1px solid ${TABLE.brass}55`,
+        background: `linear-gradient(180deg, rgba(7,29,41,0.92), ${TABLE.rail})`,
+        backdropFilter: "blur(10px)",
+        boxShadow: "0 -10px 30px -12px rgba(0,0,0,0.9)",
+      }}
+    >
+      <Stack spacing={0.25} sx={{ minWidth: 0 }}>
+        <Typography
+          variant="caption"
+          sx={{ color: "rgba(253, 247, 238, 0.6)", whiteSpace: "nowrap" }}
+        >
+          {label ? `${label} — ` : ""}
+          {cardCount === 0
+            ? "no cards yet"
+            : `${cardCount} card${cardCount === 1 ? "" : "s"} in hand`}
+        </Typography>
+        {total !== undefined ? (
+          <Typography
+            variant="h5"
+            sx={{
+              color: total < 0 ? TABLE.danger : TABLE.cream,
+              fontVariantNumeric: "tabular-nums",
+              lineHeight: 1,
+            }}
+          >
+            {total}
+            <Box
+              component="span"
+              sx={{ color: TABLE.brass, fontSize: "0.6em", ml: 0.75 }}
+            >
+              pts
+            </Box>
+          </Typography>
+        ) : (
+          <Typography variant="h6" sx={{ color: TABLE.brass, lineHeight: 1 }}>
+            Hidden until scoring
+          </Typography>
+        )}
+      </Stack>
+      <Button
+        size="small"
+        variant="outlined"
+        disabled={cardCount === 0}
+        onClick={() =>
+          document
+            .getElementById("hand-zone")
+            ?.scrollIntoView({ behavior: "smooth", block: "center" })
+        }
+        sx={{ borderColor: `${TABLE.brass}66`, color: TABLE.cream, flexShrink: 0 }}
+      >
+        See hand
+      </Button>
+    </Box>
+  );
+}
 
 interface Player {
   id: string;
@@ -76,11 +163,15 @@ export default function ScoringPage() {
   const [showScoreReveal, setShowScoreReveal] = useState<boolean>(false);
   const [revealedScores, setRevealedScores] = useState<number>(0);
 
+  // A single PointerSensor could not drag on a phone at all: the browser
+  // claimed the gesture for scrolling before dnd-kit ever saw it. Splitting
+  // the sensors fixes that — a mouse drags as soon as it moves 8px, and a
+  // finger drags after holding still for a moment, which leaves quick taps
+  // and scroll swipes to behave as they always did.
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 180, tolerance: 8 },
     })
   );
 
@@ -478,7 +569,8 @@ export default function ScoringPage() {
             sx={{
               minHeight: "100vh",
               py: 4,
-              background: "linear-gradient(160deg, #0c2a3e, #081423)",
+              // Room for the fixed score rail on small screens.
+              pb: { xs: 14, lg: 4 },
             }}
           >
             <Container maxWidth="xl">
@@ -494,14 +586,16 @@ export default function ScoringPage() {
                   gap: 2,
                 }}
               >
-                <Stack spacing={1}>
-                  <Typography variant="h4" sx={{ color: "#6fd1ff" }}>
+                <Stack spacing={0.5}>
+                  <Typography variant="overline" sx={{ color: TABLE.brass }}>
+                    Mario House Party
+                  </Typography>
+                  <Typography variant="h4" sx={{ color: TABLE.cream }}>
                     {mode === "calculator" ? "Score Calculator" : "Full Game"}
                   </Typography>
-                  <Typography variant="body2" sx={{ color: "rgba(253, 247, 238, 0.7)" }}>
-                    {mode === "calculator"
-                      ? "Tap or drag cards to add/remove from your scoring zone"
-                      : "Coming soon - Play a full multiplayer game"}
+                  <Typography variant="body2" sx={{ color: "rgba(253, 247, 238, 0.68)" }}>
+                    Tap a card to deal it in, tap it again to take it back.
+                    Press and hold to drag.
                   </Typography>
                 </Stack>
 
@@ -549,11 +643,7 @@ export default function ScoringPage() {
                   {/* Right: Scoring Zone */}
                   <Stack spacing={2}>
                     <Paper
-                  sx={{
-                    p: 2,
-                    bgcolor: "rgba(111, 209, 255, 0.05)",
-                    border: "2px dashed rgba(111, 209, 255, 0.3)",
-                  }}
+                  sx={{ p: 2 }}
                 >
                   <Stack spacing={2}>
                     <Box
@@ -563,7 +653,11 @@ export default function ScoringPage() {
                         alignItems: "center",
                       }}
                     >
-                      <Typography variant="h6" sx={{ color: "#6fd1ff" }}>
+                      <Typography
+                        id="hand-zone"
+                        variant="h6"
+                        sx={{ color: TABLE.cream, scrollMarginTop: 80 }}
+                      >
                         Your Cards
                       </Typography>
                       <Button
@@ -602,14 +696,31 @@ export default function ScoringPage() {
                 />
 
                 {/* Score Display */}
-                <Paper sx={{ p: 3, bgcolor: "rgba(255, 255, 255, 0.05)" }}>
-                  <Stack spacing={2}>
-                    <Typography variant="h5" sx={{ color: "#fdf7ee" }}>
+                <Paper
+                  id="score-plaque"
+                  sx={{
+                    p: 3,
+                    borderColor: "rgba(217, 182, 95, 0.45)",
+                    background:
+                      "linear-gradient(180deg, rgba(217,182,95,0.10), rgba(6,26,36,0.72) 55%)",
+                  }}
+                >
+                  <Stack spacing={1.5}>
+                    <Typography
+                      variant="overline"
+                      sx={{ color: TABLE.brass, letterSpacing: "0.22em" }}
+                    >
                       Total Score
                     </Typography>
                     <Typography
                       variant="h2"
-                      sx={{ color: "#6fd1ff", fontWeight: 700 }}
+                      sx={{
+                        color: scoreBreakdown.totalScore < 0 ? TABLE.danger : TABLE.cream,
+                        fontWeight: 800,
+                        lineHeight: 1,
+                        fontVariantNumeric: "tabular-nums",
+                        textShadow: "0 2px 10px rgba(0,0,0,0.5)",
+                      }}
                     >
                       {scoreBreakdown.totalScore}
                     </Typography>
@@ -722,6 +833,11 @@ export default function ScoringPage() {
                 </DragOverlay>
               </Stack>
             </Container>
+
+            <ScoreRail
+              cardCount={scoringZone.length}
+              total={scoreBreakdown.totalScore}
+            />
           </Box>
         </DndContext>
       ) : gameSetup ? (
@@ -730,7 +846,6 @@ export default function ScoringPage() {
           sx={{
             minHeight: "100vh",
             py: 4,
-            background: "linear-gradient(160deg, #0c2a3e, #081423)",
           }}
         >
           <Container maxWidth="md">
@@ -871,7 +986,6 @@ export default function ScoringPage() {
             sx={{
               minHeight: "100vh",
               py: 4,
-              background: "linear-gradient(160deg, #0c2a3e, #081423)",
             }}
           >
             <Container maxWidth="xl">
@@ -1013,10 +1127,12 @@ export default function ScoringPage() {
                     {/* Right: Player's Scoring Zone */}
                     <Stack spacing={2}>
                       <Paper
+                        id="hand-zone"
                         sx={{
                           p: 2,
-                          bgcolor: `${players[currentPlayerTab].color.primary}15`,
-                          border: `2px dashed ${players[currentPlayerTab].color.primary}`,
+                          scrollMarginTop: 80,
+                          borderColor: players[currentPlayerTab].color.primary,
+                          boxShadow: `inset 0 2px 0 ${players[currentPlayerTab].color.primary}, inset 0 1px 0 rgba(255,255,255,0.06), 0 10px 30px -18px rgba(0,0,0,0.9)`,
                         }}
                       >
                         <Stack spacing={2}>
@@ -1102,6 +1218,13 @@ export default function ScoringPage() {
                 ) : null}
               </DragOverlay>
             </Container>
+
+            {players[currentPlayerTab] && (
+              <ScoreRail
+                label={players[currentPlayerTab].name}
+                cardCount={players[currentPlayerTab].cards.length}
+              />
+            )}
           </Box>
 
           {/* Arcade-Style Score Reveal Modal */}

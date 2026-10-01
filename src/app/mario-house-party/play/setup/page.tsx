@@ -85,7 +85,6 @@ export default function MarioGameSetup() {
         display: "flex",
         alignItems: "center",
         py: { xs: 6, md: 10 },
-        background: "linear-gradient(160deg, #0c2a3e, #081423)",
       }}
     >
       <Container maxWidth="sm">

@@ -33,8 +33,7 @@ export function PlayerHand({
     <Paper
       sx={{
         p: 3,
-        bgcolor: "#0c2a3e",
-        border: "2px solid #6fd1ff",
+                border: "2px solid #6fd1ff",
         borderRadius: 2,
       }}
     >

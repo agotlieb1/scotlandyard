@@ -21,7 +21,6 @@ export default function MarioCardsReference() {
         display: "flex",
         alignItems: "flex-start",
         py: { xs: 3, md: 5 },
-        background: "linear-gradient(160deg, #0c2a3e, #081423)",
       }}
     >
       <Container maxWidth="lg">

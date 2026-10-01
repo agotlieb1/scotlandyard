@@ -87,7 +87,6 @@ export default function MarioDiagnostic() {
       sx={{
         minHeight: "100vh",
         py: { xs: 4, md: 6 },
-        background: "linear-gradient(160deg, #0c2a3e, #081423)",
       }}
     >
       <Container maxWidth="md">

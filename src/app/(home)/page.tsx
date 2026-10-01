@@ -60,8 +60,8 @@ const PROJECTS: Project[] = [
       "The scoreboard for the card game: a drag-and-drop calculator for collectables, heroes, monsters and trophies, plus the full card reference.",
     cta: "Open the calculator",
     accent: "#6fd1ff",
-    surface: "#0c2a3e",
-    border: "rgba(111, 209, 255, 0.28)",
+    surface: "#0e3f55",
+    border: "rgba(217, 182, 95, 0.3)",
     heading: "#fdf7ee",
     body: "rgba(253, 247, 238, 0.74)",
     nameSx: {
@@ -70,7 +70,7 @@ const PROJECTS: Project[] = [
       fontWeight: 700,
       letterSpacing: "-0.01em",
     },
-    swatches: ["#6fd1ff", "#fdf7ee", "#081423"],
+    swatches: ["#6fd1ff", "#d9b65f", "#07293a"],
   },
   {
     href: "/down4",

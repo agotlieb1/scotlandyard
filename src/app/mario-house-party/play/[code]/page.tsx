@@ -273,7 +273,6 @@ export default function MarioGamePage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(160deg, #0c2a3e, #081423)",
         }}
       >
         <CircularProgress sx={{ color: "#6fd1ff" }} />
@@ -289,7 +288,6 @@ export default function MarioGamePage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(160deg, #0c2a3e, #081423)",
         }}
       >
         <Container maxWidth="sm">
@@ -330,7 +328,6 @@ export default function MarioGamePage() {
         sx={{
           minHeight: "100vh",
           py: 4,
-          background: "linear-gradient(160deg, #0c2a3e, #081423)",
         }}
       >
         <Container maxWidth="md">
@@ -477,7 +474,6 @@ export default function MarioGamePage() {
         sx={{
           minHeight: "100vh",
           py: 4,
-          background: "linear-gradient(160deg, #0c2a3e, #081423)",
         }}
       >
         <Container maxWidth="xl">
@@ -539,7 +535,6 @@ export default function MarioGamePage() {
       sx={{
         minHeight: "100vh",
         py: 4,
-        background: "linear-gradient(160deg, #0c2a3e, #081423)",
       }}
     >
       <Container maxWidth="xl">

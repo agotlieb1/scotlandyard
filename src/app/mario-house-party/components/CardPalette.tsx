@@ -34,12 +34,14 @@ function DraggableCardSource({ card, id, onTap }: DraggableCardSourceProps) {
     data: { card },
   });
 
-  const style = transform
-    ? {
-        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-        opacity: isDragging ? 0.5 : 1,
-      }
-    : undefined;
+  const style = {
+    transform: transform
+      ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
+      : undefined,
+    opacity: isDragging ? 0.4 : 1,
+    // Quick taps pass straight through; a press and hold starts the drag.
+    touchAction: "manipulation" as const,
+  };
 
   const handleClick = (e: React.MouseEvent) => {
     // Only trigger tap if not dragging
@@ -96,23 +98,17 @@ export function CardPalette({ onCardTap }: CardPaletteProps) {
   };
 
   return (
-    <Paper
-      sx={{
-        bgcolor: "rgba(255, 255, 255, 0.05)",
-        border: "1px solid rgba(111, 209, 255, 0.2)",
-      }}
-    >
+    <Paper sx={{ overflow: "hidden" }}>
       <Tabs
         value={selectedTab}
         onChange={(_, newValue) => setSelectedTab(newValue)}
+        variant="scrollable"
+        scrollButtons={false}
         sx={{
-          borderBottom: "1px solid rgba(111, 209, 255, 0.2)",
-          "& .MuiTab-root": {
-            color: "rgba(253, 247, 238, 0.6)",
-          },
-          "& .Mui-selected": {
-            color: "#6fd1ff !important",
-          },
+          px: 1,
+          borderBottom: "1px solid rgba(217, 182, 95, 0.18)",
+          background:
+            "linear-gradient(180deg, rgba(217,182,95,0.07), transparent)",
         }}
       >
         <Tab label="Collectables" />
@@ -127,7 +123,8 @@ export function CardPalette({ onCardTap }: CardPaletteProps) {
             <Accordion
               defaultExpanded
               sx={{
-                bgcolor: "rgba(241, 196, 15, 0.1)",
+                background: "rgba(4, 20, 28, 0.38)",
+                borderTop: "2px solid rgba(241, 196, 15, 0.75)",
                 "&:before": { display: "none" },
               }}
             >
@@ -146,7 +143,8 @@ export function CardPalette({ onCardTap }: CardPaletteProps) {
 
             <Accordion
               sx={{
-                bgcolor: "rgba(231, 76, 60, 0.1)",
+                background: "rgba(4, 20, 28, 0.38)",
+                borderTop: "2px solid rgba(231, 76, 60, 0.75)",
                 "&:before": { display: "none" },
               }}
             >
@@ -165,7 +163,8 @@ export function CardPalette({ onCardTap }: CardPaletteProps) {
 
             <Accordion
               sx={{
-                bgcolor: "rgba(243, 156, 18, 0.1)",
+                background: "rgba(4, 20, 28, 0.38)",
+                borderTop: "2px solid rgba(243, 156, 18, 0.75)",
                 "&:before": { display: "none" },
               }}
             >
@@ -184,7 +183,8 @@ export function CardPalette({ onCardTap }: CardPaletteProps) {
 
             <Accordion
               sx={{
-                bgcolor: "rgba(155, 89, 182, 0.1)",
+                background: "rgba(4, 20, 28, 0.38)",
+                borderTop: "2px solid rgba(155, 89, 182, 0.75)",
                 "&:before": { display: "none" },
               }}
             >
@@ -205,7 +205,8 @@ export function CardPalette({ onCardTap }: CardPaletteProps) {
             <Accordion
               defaultExpanded
               sx={{
-                bgcolor: "rgba(231, 76, 60, 0.1)",
+                background: "rgba(4, 20, 28, 0.38)",
+                borderTop: "2px solid rgba(231, 76, 60, 0.75)",
                 "&:before": { display: "none" },
               }}
             >
@@ -224,7 +225,8 @@ export function CardPalette({ onCardTap }: CardPaletteProps) {
 
             <Accordion
               sx={{
-                bgcolor: "rgba(230, 126, 34, 0.1)",
+                background: "rgba(4, 20, 28, 0.38)",
+                borderTop: "2px solid rgba(230, 126, 34, 0.75)",
                 "&:before": { display: "none" },
               }}
             >
@@ -243,7 +245,8 @@ export function CardPalette({ onCardTap }: CardPaletteProps) {
 
             <Accordion
               sx={{
-                bgcolor: "rgba(243, 156, 18, 0.1)",
+                background: "rgba(4, 20, 28, 0.38)",
+                borderTop: "2px solid rgba(243, 156, 18, 0.75)",
                 "&:before": { display: "none" },
               }}
             >
@@ -262,7 +265,8 @@ export function CardPalette({ onCardTap }: CardPaletteProps) {
 
             <Accordion
               sx={{
-                bgcolor: "rgba(142, 68, 173, 0.1)",
+                background: "rgba(4, 20, 28, 0.38)",
+                borderTop: "2px solid rgba(142, 68, 173, 0.75)",
                 "&:before": { display: "none" },
               }}
             >
@@ -281,7 +285,8 @@ export function CardPalette({ onCardTap }: CardPaletteProps) {
 
             <Accordion
               sx={{
-                bgcolor: "rgba(149, 165, 166, 0.1)",
+                background: "rgba(4, 20, 28, 0.38)",
+                borderTop: "2px solid rgba(149, 165, 166, 0.75)",
                 "&:before": { display: "none" },
               }}
             >

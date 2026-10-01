@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Box, Chip, Stack, Typography } from "@mui/material";
+
+import { CARD_SHADOW, CARD_SHADOW_RAISED } from "../theme";
 import type { GameCard } from "../types";
 import { HOUSE_NAMES } from "../types";
 import { getCardImagePath, getCardColor } from "../card-images";
@@ -54,9 +56,9 @@ export function CardDisplay({ card, size = "medium" }: CardDisplayProps) {
   };
 
   const cardSizes = {
-    small: { width: 80, height: 110, fontSize: "0.7rem" },
-    medium: { width: 120, height: 160, fontSize: "0.85rem" },
-    large: { width: 160, height: 220, fontSize: "1rem" },
+    small: { width: 80, height: 112, fontSize: "0.7rem" },
+    medium: { width: 120, height: 168, fontSize: "0.85rem" },
+    large: { width: 160, height: 224, fontSize: "1rem" },
   };
 
   const { width, height, fontSize } = cardSizes[size];
@@ -66,16 +68,30 @@ export function CardDisplay({ card, size = "medium" }: CardDisplayProps) {
       sx={{
         width,
         height,
-        borderRadius: 2,
+        flexShrink: 0,
+        borderRadius: "8px",
         bgcolor: cardColor,
-        border: "2px solid rgba(255, 255, 255, 0.2)",
-        boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)",
+        // A printed card: a thin white edge, a dark rim, and a shadow with
+        // both a contact and a spread, so it sits on the felt.
+        border: "2px solid rgba(255, 255, 255, 0.78)",
+        outline: "1px solid rgba(0, 0, 0, 0.45)",
+        boxShadow: CARD_SHADOW,
         position: "relative",
         overflow: "hidden",
         cursor: "grab",
-        transition: "transform 0.2s",
+        // Quick taps stay instant; a press and hold is what starts a drag.
+        touchAction: "manipulation",
+        WebkitTapHighlightColor: "transparent",
+        transition:
+          "transform 160ms cubic-bezier(0.2, 0.8, 0.3, 1), box-shadow 160ms ease",
         "&:hover": {
-          transform: "translateY(-2px)",
+          transform: "translateY(-6px) scale(1.02)",
+          boxShadow: CARD_SHADOW_RAISED,
+          zIndex: 2,
+        },
+        "&:active": {
+          transform: "translateY(-2px) scale(0.99)",
+          transition: "transform 60ms ease",
         },
       }}
     >

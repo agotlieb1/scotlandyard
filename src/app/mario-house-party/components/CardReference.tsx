@@ -27,7 +27,7 @@ export function CardReference() {
 
   return (
     <Box sx={{ width: "100%" }}>
-      <Paper sx={{ bgcolor: "#0c2a3e", mb: 3 }}>
+      <Paper sx={{ mb: 3 }}>
         <Tabs
           value={selectedTab}
           onChange={(_, newValue) => setSelectedTab(newValue)}

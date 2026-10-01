@@ -112,8 +112,7 @@ export function PlayerBoard({
               onDrop={(e) => handleDrop(e, house)}
               sx={{
                 p: 2,
-                bgcolor: "#0c2a3e",
-                border: `2px solid ${HOUSE_COLORS[house]}`,
+                                border: `2px solid ${HOUSE_COLORS[house]}`,
                 borderRadius: 2,
                 minHeight: 200,
                 opacity: isCurrentPlayer ? 1 : 0.8,
