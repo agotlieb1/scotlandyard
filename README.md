@@ -1,9 +1,12 @@
 # Count Mittens Games
 
-The site hosts two small projects, each with its own look, behind one home page:
+The site hosts three small projects, each with its own look, behind one home
+page:
 
 - **Scotland Yard** — a companion for a murder mystery night: start an
   investigation, set up The Murder, and keep clues synced in realtime.
+- **Mario House Party** — the scoreboard for the card game: a drag-and-drop
+  score calculator and the full card reference.
 - **Down4** — a permanent board for a friend group: light a beacon for whatever
   you are up for and see who else is down.
 
@@ -73,6 +76,7 @@ builds and runs, but every page shows a "Supabase is not configured" notice.
 - `src/app/(home)` the Count Mittens Games home page, with its own theme
 - `src/app/(scotland-yard)` the investigation pages (route group; the group name
   is not part of the URL)
+- `src/app/mario-house-party` the Mario House Party pages
 - `src/app/down4` the Down4 pages
 - `src/lib` Supabase helpers, investigation utilities, and game data
 
@@ -110,8 +114,37 @@ Two marks, cut out of the source artwork for different jobs:
 - `/investigation/[code]/murder` The Murder setup.
 - `/investigation/[code]/notebook` The Notebook.
 - `/investigation/[code]/crime-computer` Crime Computer.
+- `/mario-house-party` Mario House Party home.
+- `/mario-house-party/scoring` Score calculator.
+- `/mario-house-party/cards` Card reference.
 - `/down4` Join or start a Down4 crew.
 - `/down4/[code]` The crew's permanent Down4 board.
+
+## Mario House Party
+
+A companion for the physical card game: tap or drag cards into a scoring zone
+and it totals collectables, heroes, monsters and trophies, with a card
+reference alongside. The card art lives in `public/cards/{collectables,heroes,
+monsters}/` — any card whose image is missing falls back to a drawn card with
+its name and value, so the calculator works with no art at all.
+
+Online play (`/mario-house-party/play/...`) is **not restored yet**. It needs
+these, none of which are in the repo:
+
+- `src/lib/mario-types.ts` — `MarioGame`, `MarioGamePlayer`, `MarioGameState`
+- `src/lib/mario-games.ts` — `createMarioGame`, `fetchMarioGame`,
+  `fetchMarioPlayers`, `upsertMarioPlayer`
+- `src/lib/mario-game-rules.ts` — `ACTIONS_PER_TURN`, `canPerformAction`,
+  `canSteal`, `hasActionsRemaining`, `getRemainingActions`, `getActionSummary`,
+  `isFinalRounds`
+- `src/lib/mario-game-start.ts` — `startMarioGame`
+- `src/lib/mario-game-actions.ts` — `playCard`, `endTurn`, `stealCard`
+- the Supabase tables those read and write
+
+The pages that need them (`play/setup`, `play/[code]`, `diagnostic`, and the
+`TurnDisplay`, `ActionButtons` and `StealDialog` components) are held back
+until the modules land, and the home page's **Play Online** button is disabled
+with a note saying so.
 
 ## Down4
 

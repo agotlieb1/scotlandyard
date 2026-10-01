@@ -53,6 +53,26 @@ const PROJECTS: Project[] = [
     swatches: ["#8b1c24", "#b07a2a", "#fff7e6"],
   },
   {
+    href: "/mario-house-party",
+    eyebrow: "Companion for game night",
+    name: "Mario House Party",
+    blurb:
+      "The scoreboard for the card game: a drag-and-drop calculator for collectables, heroes, monsters and trophies, plus the full card reference.",
+    cta: "Open the calculator",
+    accent: "#6fd1ff",
+    surface: "#0c2a3e",
+    border: "rgba(111, 209, 255, 0.28)",
+    heading: "#fdf7ee",
+    body: "rgba(253, 247, 238, 0.74)",
+    nameSx: {
+      // Its own pages lead with a plain, slightly condensed sans; echo that.
+      fontFamily: "var(--font-brand-body), system-ui, sans-serif",
+      fontWeight: 700,
+      letterSpacing: "-0.01em",
+    },
+    swatches: ["#6fd1ff", "#fdf7ee", "#081423"],
+  },
+  {
     href: "/down4",
     eyebrow: "For the group chat",
     name: "Down",
