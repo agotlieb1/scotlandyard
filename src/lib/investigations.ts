@@ -197,6 +197,32 @@ export const submitEvidence = async (
   return { ok: true };
 };
 
+export const updateNotebookChecks = async (
+  code: string,
+  playerId: string,
+  notebookChecks: EvidenceItem[]
+) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return { error: "Supabase is not configured." };
+  }
+
+  const { error } = await supabase
+    .from("investigation_players")
+    .update({
+      notebook_checks: notebookChecks,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("investigation_code", code)
+    .eq("player_id", playerId);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { ok: true };
+};
+
 export const upsertCaseFile = async (
   code: string,
   caseFile: Omit<InvestigationCaseFile, "investigation_code" | "created_at">
@@ -267,18 +293,23 @@ export const createAccusation = async (
   return { ok: true };
 };
 
-export const fetchAccusations = async (code: string, limit = 5) => {
+export const fetchAccusations = async (code: string, limit?: number) => {
   const supabase = getSupabaseClient();
   if (!supabase) {
     return { error: "Supabase is not configured." };
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("investigation_accusations")
     .select("*")
     .eq("investigation_code", code)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .order("created_at", { ascending: false });
+
+  if (typeof limit === "number") {
+    query = query.limit(limit);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     return { error: error.message };

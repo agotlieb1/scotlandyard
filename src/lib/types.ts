@@ -20,6 +20,7 @@ export type InvestigationPlayer = {
   identity: string | null;
   is_murderer: boolean;
   evidence: EvidenceItem[] | null;
+  notebook_checks: EvidenceItem[] | null;
   created_at: string;
   updated_at: string;
 };
@@ -45,4 +46,41 @@ export type InvestigationAccusation = {
   is_correct: boolean;
   message: string;
   created_at: string;
+};
+
+export type Down4Crew = {
+  code: string;
+  name: string | null;
+  created_at: string;
+};
+
+/** 'show_up': already there, walk in. 'text_me': up for it, reach out first. */
+export type Down4JoinMode = "show_up" | "text_me";
+
+export type Down4Beacon = {
+  id: string;
+  crew_code: string;
+  activity: string;
+  area: string;
+  join_mode: Down4JoinMode;
+  until_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Down4Member = {
+  id: string;
+  crew_code: string;
+  member_id: string;
+  name: string;
+  beacon_id: string | null;
+  beacon_joined_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** A beacon plus everyone who is in on it, newest joiner last. */
+export type Down4LitBeacon = {
+  beacon: Down4Beacon;
+  members: Down4Member[];
 };

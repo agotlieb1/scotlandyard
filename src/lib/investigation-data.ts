@@ -1,14 +1,32 @@
 export const ALIAS_TITLES = [
-  "Constable",
-  "Solicitor",
-  "Inspector",
-  "Detective",
+  "Agent",
+  "Analyst",
+  "Archivist",
   "Barrister",
-  "Magistrate",
   "Captain",
+  "Constable",
+  "Citizen",
+  "Commander",
+  "Courier",
+  "Detective",
+  "Director",
+  "Doctor",
+  "Engineer",
+  "Inspector",
+  "Investigator",
+  "Magistrate",
   "Mr.",
   "Mrs.",
+  "Mx.",
+  "Operative",
+  "Professor",
+  "Scholar",
+  "Sir",
   "Dame",
+  "Solicitor",
+  "Strategist",
+  "Technician",
+  "Warden",
 ];
 
 export const ALIAS_COLORS = [
@@ -23,6 +41,19 @@ export const ALIAS_COLORS = [
   "Rose",
   "Ivory",
 ];
+
+export const ALIAS_COLOR_HEX: Record<string, string> = {
+  Onyx: "#1f1f1f",
+  Umber: "#7a4f32",
+  Scarlet: "#c1121f",
+  Amber: "#d97706",
+  Gold: "#b8860b",
+  Emerald: "#047857",
+  Azure: "#2563eb",
+  Violet: "#7c3aed",
+  Rose: "#e11d48",
+  Ivory: "#bda788",
+};
 
 export const IDENTITIES = [
   "The Murderer",
@@ -39,6 +70,7 @@ export const IDENTITIES = [
 
 export const WEAPONS = [
   "Candlestick",
+  "Dagger",
   "Letter Opener",
   "Poison Vial",
   "Revolver",
@@ -50,6 +82,7 @@ export const WEAPONS = [
 ];
 
 export const LOCATIONS = [
+  "Billiard Room",
   "Study",
   "Ballroom",
   "Conservatory",
@@ -62,6 +95,7 @@ export const LOCATIONS = [
 ];
 
 export const MOTIVES = [
+  "Ambition",
   "Blackmail",
   "Jealousy",
   "Revenge",
