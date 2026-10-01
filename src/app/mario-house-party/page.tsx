@@ -39,30 +39,20 @@ export default function MarioHousePartyHome() {
           </Stack>
 
           <Stack spacing={3}>
-            <Stack spacing={1}>
-              <Button
-                variant="contained"
-                size="large"
-                disabled
-                sx={{
-                  bgcolor: "#6fd1ff",
-                  color: "#081423",
-                  "&.Mui-disabled": {
-                    bgcolor: "rgba(111, 209, 255, 0.25)",
-                    color: "rgba(253, 247, 238, 0.5)",
-                  },
-                }}
-              >
-                Play Online
-              </Button>
-              <Typography
-                variant="caption"
-                sx={{ color: "rgba(253, 247, 238, 0.55)", px: 1 }}
-              >
-                Online play is waiting on its game engine — the lib/mario-*
-                modules did not come across with the rest of the app.
-              </Typography>
-            </Stack>
+            <Button
+              variant="contained"
+              size="large"
+              onClick={() => router.push("/mario-house-party/play/setup")}
+              sx={{
+                bgcolor: "#6fd1ff",
+                color: "#081423",
+                "&:hover": {
+                  bgcolor: "#5ac1ef",
+                },
+              }}
+            >
+              Play Online
+            </Button>
             <Button
               variant="outlined"
               size="large"

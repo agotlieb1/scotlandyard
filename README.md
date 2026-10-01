@@ -57,6 +57,15 @@ Then run the SQL in `supabase/down4-schema.sql` for the Down4 board:
 It is safe to re-run, and it upgrades the first version of the Down4 tables in
 place.
 
+And the SQL in `supabase/mario-schema.sql` for Mario House Party's online game:
+
+- `mario_games` for game codes and status
+- `mario_game_players` for each seat's hand and house boards
+- `mario_game_state` for the deck, the turn, and the actions spent on it
+
+The score calculator and card reference need none of this — they run entirely
+in the browser.
+
 The SQL enables open RLS policies for MVP testing. Tighten these before shipping.
 
 ## Deploy to Vercel
@@ -128,23 +137,27 @@ reference alongside. The card art lives in `public/cards/{collectables,heroes,
 monsters}/` — any card whose image is missing falls back to a drawn card with
 its name and value, so the calculator works with no art at all.
 
-Online play (`/mario-house-party/play/...`) is **not restored yet**. It needs
-these, none of which are in the repo:
+Online play lives at `/mario-house-party/play/setup` (create or join a game by
+code) and `/mario-house-party/play/[code]` (the board). A turn is three
+actions — play, tap, steal — with one steal per turn and only while you hold
+fewer than five cards; ending a turn refills your hand to five, and when the
+deck runs out the game moves to its final rounds. `/mario-house-party/diagnostic`
+dumps a game's raw rows when something looks wrong.
 
-- `src/lib/mario-types.ts` — `MarioGame`, `MarioGamePlayer`, `MarioGameState`
-- `src/lib/mario-games.ts` — `createMarioGame`, `fetchMarioGame`,
-  `fetchMarioPlayers`, `upsertMarioPlayer`
-- `src/lib/mario-game-rules.ts` — `ACTIONS_PER_TURN`, `canPerformAction`,
-  `canSteal`, `hasActionsRemaining`, `getRemainingActions`, `getActionSummary`,
-  `isFinalRounds`
-- `src/lib/mario-game-start.ts` — `startMarioGame`
-- `src/lib/mario-game-actions.ts` — `playCard`, `endTurn`, `stealCard`
-- the Supabase tables those read and write
+The game logic sits in `src/lib/mario-*.ts`: `mario-types` (row shapes),
+`mario-games` (reads and writes), `mario-deck-builder` (deck composition, which
+scales with player count — 62 cards for two players, 90 for four),
+`mario-game-rules` (turn and action rules), `mario-game-start` (deal and open
+the game) and `mario-game-actions` (play, steal, end turn).
 
-The pages that need them (`play/setup`, `play/[code]`, `diagnostic`, and the
-`TurnDisplay`, `ActionButtons` and `StealDialog` components) are held back
-until the modules land, and the home page's **Play Online** button is disabled
-with a note saying so.
+Run the SQL in `supabase/mario-schema.sql` for the three tables it needs:
+
+- `mario_games` for the game code, status and start time
+- `mario_game_players` for each seat: hand and the four house boards
+- `mario_game_state` for the deck, whose turn it is, and the actions spent
+
+It is safe to re-run, and it enables realtime on all three tables so every seat
+sees a card the moment it is played.
 
 ## Down4
 
