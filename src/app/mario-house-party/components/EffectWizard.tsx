@@ -11,6 +11,7 @@ import {
   Divider,
   List,
   ListItemButton,
+  ListSubheader,
   Stack,
   Typography,
 } from "@mui/material";
@@ -21,10 +22,14 @@ import { cardsOnMat, type TargetablePlayer } from "./TargetPicker";
 import { cardLabel } from "./PendingActionBar";
 import {
   requirementFor,
+  type AnySpot,
   type Play,
   type Spot,
 } from "@/lib/mario-card-effects";
 import { TABLE } from "../theme";
+
+/** A card the wizard has been pointed at: on a mat, or in your own hand. */
+type Pick = { spot: AnySpot; card: GameCard; where: string };
 
 /**
  * Walks a card's targets as lists: pick a player, then pick a card by name.
@@ -37,6 +42,7 @@ export function EffectWizard({
   card,
   players,
   youId,
+  hand,
   discard,
   onClose,
   onReady,
@@ -45,20 +51,22 @@ export function EffectWizard({
   card: GameCard | null;
   players: TargetablePlayer[];
   youId: string;
+  /** Your hand, so Gold Pipe can swap a card you are holding. */
+  hand: GameCard[];
   discard: GameCard[];
   onClose: () => void;
   onReady: (play: Play, label: string) => void;
 }) {
-  const [picked, setPicked] = useState<TargetablePlayer | null>(null);
-  const [cards, setCards] = useState<CardRef[]>([]);
+  const [player, setPlayer] = useState<TargetablePlayer | null>(null);
+  const [picks, setPicks] = useState<Pick[]>([]);
   const requirement = useMemo(
     () => (card ? requirementFor(card) : { kind: "none" as const }),
     [card]
   );
 
   const reset = () => {
-    setPicked(null);
-    setCards([]);
+    setPlayer(null);
+    setPicks([]);
   };
   const close = () => {
     reset();
@@ -84,32 +92,42 @@ export function EffectWizard({
           ? 1
           : 0;
 
-  const needsMoreCards = cards.length < wantedCards;
+  const needsMoreCards = picks.length < wantedCards;
   const needsDestination =
-    requirement.kind === "card-and-destination" && cards.length === 1;
+    requirement.kind === "card-and-destination" && picks.length === 1;
+  // Only Gold Pipe reaches into a hand.
+  const handAllowed = requirement.kind === "two-any";
 
   const heading = () => {
     if (requirement.kind === "player" || requirement.kind === "player-and-house") {
-      return picked ? "Which house?" : "Which player?";
+      return player ? "Which house?" : "Which player?";
     }
     if (requirement.kind === "discard-card") return "From the discard pile";
     if (needsDestination) return "Slide it to whose mat?";
     if (needsMoreCards) {
-      const n = wantedCards - cards.length;
-      return picked
+      const n = wantedCards - picks.length;
+      return player
         ? `Pick a card (${n} to go)`
         : `Which player? (${n} card${n === 1 ? "" : "s"} to go)`;
     }
     return "Ready";
   };
 
+  const sameSpot = (a: AnySpot, b: AnySpot) =>
+    a.playerId === b.playerId && a.row === b.row && a.index === b.index;
+
+  const take = (pick: Pick) => {
+    setPicks((prev) => [...prev, pick]);
+    setPlayer(null);
+  };
+
   // ---- the steps ----------------------------------------------------------
   const playerList = (onPick: (p: TargetablePlayer) => void) => (
     <List disablePadding>
-      {players.map((player) => (
+      {players.map((p) => (
         <ListItemButton
-          key={player.id}
-          onClick={() => onPick(player)}
+          key={p.id}
+          onClick={() => onPick(p)}
           sx={{ borderRadius: 2, mb: 0.5 }}
         >
           <Box
@@ -117,14 +135,14 @@ export function EffectWizard({
               width: 12,
               height: 12,
               borderRadius: "50%",
-              bgcolor: player.colour,
-              boxShadow: `0 0 8px ${player.colour}`,
+              bgcolor: p.colour,
+              boxShadow: `0 0 8px ${p.colour}`,
               mr: 1.5,
               flexShrink: 0,
             }}
           />
           <Typography sx={{ fontWeight: 600 }}>
-            {player.id === youId ? `${player.name} (you)` : player.name}
+            {p.id === youId ? `${p.name} (you)` : p.name}
           </Typography>
         </ListItemButton>
       ))}
@@ -132,20 +150,30 @@ export function EffectWizard({
   );
 
   const cardList = (
-    player: TargetablePlayer,
+    chosen: TargetablePlayer,
     only?: (c: GameCard) => boolean
   ) => {
-    const rows = cardsOnMat(player, only).filter(
-      (row) =>
-        !cards.some(
-          (chosen) =>
-            chosen.playerId === row.ref.playerId &&
-            chosen.row === row.ref.row &&
-            chosen.zone === row.ref.zone &&
-            chosen.index === row.ref.index
-        )
-    );
-    if (rows.length === 0) {
+    const taken = (spot: AnySpot) => picks.some((p) => sameSpot(p.spot, spot));
+    const matRows: Pick[] = cardsOnMat(chosen, only)
+      .map(({ ref, where }: { ref: CardRef; where: string }) => ({
+        spot: toSpot(ref) as AnySpot,
+        card: ref.card,
+        where,
+      }))
+      .filter((pick) => !taken(pick.spot));
+    // Gold Pipe can swap a card out of your own hand, which nothing else can.
+    const handRows: Pick[] =
+      handAllowed && chosen.id === youId
+        ? hand
+            .map((c, index) => ({
+              spot: { playerId: youId, row: "hand" as const, index },
+              card: c,
+              where: "In your hand",
+            }))
+            .filter((pick) => pick.card !== card && !taken(pick.spot))
+        : [];
+
+    if (matRows.length === 0 && handRows.length === 0) {
       return (
         <Typography
           variant="body2"
@@ -156,27 +184,40 @@ export function EffectWizard({
         </Typography>
       );
     }
+
+    const row = (pick: Pick) => (
+      <ListItemButton
+        key={`${pick.spot.row}-${pick.spot.index}-${cardLabel(pick.card)}`}
+        onClick={() => take(pick)}
+        sx={{ borderRadius: 2, mb: 0.5 }}
+      >
+        <Stack sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 600 }} noWrap>
+            {cardLabel(pick.card)}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {pick.where}
+          </Typography>
+        </Stack>
+      </ListItemButton>
+    );
+
     return (
       <List disablePadding sx={{ maxHeight: 320, overflowY: "auto" }}>
-        {rows.map(({ ref, where }) => (
-          <ListItemButton
-            key={`${ref.row}-${ref.zone}-${ref.index}`}
-            onClick={() => {
-              setCards((prev) => [...prev, ref]);
-              setPicked(null);
-            }}
-            sx={{ borderRadius: 2, mb: 0.5 }}
-          >
-            <Stack sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontWeight: 600 }} noWrap>
-                {cardLabel(ref.card)}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {where}
-              </Typography>
-            </Stack>
-          </ListItemButton>
-        ))}
+        {handRows.length > 0 && (
+          <>
+            <ListSubheader disableSticky sx={{ bgcolor: "transparent", px: 2 }}>
+              Your hand
+            </ListSubheader>
+            {handRows.map(row)}
+            {matRows.length > 0 && (
+              <ListSubheader disableSticky sx={{ bgcolor: "transparent", px: 2 }}>
+                On the mat
+              </ListSubheader>
+            )}
+          </>
+        )}
+        {matRows.map(row)}
       </List>
     );
   };
@@ -251,20 +292,20 @@ export function EffectWizard({
     }
 
     if (requirement.kind === "player") {
-      return playerList((player) =>
+      return playerList((p) =>
         finish(
           card.type === "powerup" && card.name === "K.O. Hammer"
-            ? { kind: "ko-hammer", card, targetPlayerId: player.id }
-            : { kind: "piranha", card, targetPlayerId: player.id },
+            ? { kind: "ko-hammer", card, targetPlayerId: p.id }
+            : { kind: "piranha", card, targetPlayerId: p.id },
           card.type === "powerup" && card.name === "K.O. Hammer"
-            ? `K.O. Hammer clears ${player.name}'s monsters`
-            : `Piranha Plant costs ${player.name} their next turn`
+            ? `K.O. Hammer clears ${p.name}'s monsters`
+            : `Piranha Plant costs ${p.name} their next turn`
         )
       );
     }
 
     if (requirement.kind === "player-and-house") {
-      if (!picked) return playerList(setPicked);
+      if (!player) return playerList(setPlayer);
       return (
         <List disablePadding>
           {(
@@ -279,8 +320,8 @@ export function EffectWizard({
               key={house}
               onClick={() =>
                 finish(
-                  { kind: "blue-shell", card, targetPlayerId: picked.id, house },
-                  `Blue Shell clears ${picked.name}'s ${HOUSE_SHORT[house]} heroes`
+                  { kind: "blue-shell", card, targetPlayerId: player.id, house },
+                  `Blue Shell clears ${player.name}'s ${HOUSE_SHORT[house]} heroes`
                 )
               }
               sx={{ borderRadius: 2, mb: 0.5 }}
@@ -297,43 +338,43 @@ export function EffectWizard({
     // Everything else starts by picking cards.
     if (needsMoreCards) {
       const heroesOnly = requirement.kind === "hero";
-      if (!picked) return playerList(setPicked);
-      return cardList(picked, heroesOnly ? (c) => c.type === "hero" : undefined);
+      if (!player) return playerList(setPlayer);
+      return cardList(player, heroesOnly ? (c) => c.type === "hero" : undefined);
     }
 
     if (needsDestination) {
-      return playerList((player) =>
+      return playerList((p) =>
         finish(
           {
             kind: "slide",
             card,
-            target: toSpot(cards[0]),
-            toPlayerId: player.id,
+            target: picks[0].spot as Spot,
+            toPlayerId: p.id,
           },
-          `Ice Flower slides ${cardLabel(cards[0].card)} to ${player.name}'s mat`
+          `Ice Flower slides ${cardLabel(picks[0].card)} to ${p.name}'s mat`
         )
       );
     }
 
     // Enough cards: build the play.
-    const spots = cards.map(toSpot) as Spot[];
     const name = card.type === "powerup" ? card.name : "";
+    const spots = picks.map((p) => p.spot);
     const play: Play =
       name === "Warp Pipe"
-        ? { kind: "warp", card, target: spots[0] }
+        ? { kind: "warp", card, target: spots[0] as Spot }
         : name === "Gold Pipe"
           ? { kind: "swap", card, a: spots[0], b: spots[1] }
           : name === "Tanuki Suit"
-            ? { kind: "tanuki", card, target: spots[0] }
-            : { kind: "shoot", card, targets: spots };
+            ? { kind: "tanuki", card, target: spots[0] as Spot }
+            : { kind: "shoot", card, targets: spots as Spot[] };
     const label =
       name === "Warp Pipe"
-        ? `Warp Pipe takes ${cardLabel(cards[0].card)} into your hand`
+        ? `Warp Pipe takes ${cardLabel(picks[0].card)} into your hand`
         : name === "Gold Pipe"
-          ? `Gold Pipe swaps ${cardLabel(cards[0].card)} and ${cardLabel(cards[1].card)}`
+          ? `Gold Pipe swaps ${cardLabel(picks[0].card)} and ${cardLabel(picks[1].card)}`
           : name === "Tanuki Suit"
-            ? `Tanuki Suit makes ${cardLabel(cards[0].card)} invincible`
-            : `${name} shoots ${cards.map((c) => cardLabel(c.card)).join(", ")}`;
+            ? `Tanuki Suit makes ${cardLabel(picks[0].card)} invincible`
+            : `${name} shoots ${picks.map((p) => cardLabel(p.card)).join(", ")}`;
 
     return (
       <Stack spacing={2} sx={{ p: 2 }}>
@@ -354,16 +395,16 @@ export function EffectWizard({
         <Typography variant="h6">{heading()}</Typography>
       </DialogTitle>
       <DialogContent sx={{ px: 1.5, pb: 2 }}>
-        {cards.length > 0 && (
+        {picks.length > 0 && (
           <>
             <Stack direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: "wrap" }} useFlexGap>
-              {cards.map((ref, i) => (
+              {picks.map((pick, i) => (
                 <Chip
                   key={i}
                   size="small"
-                  label={cardLabel(ref.card)}
+                  label={cardLabel(pick.card)}
                   onDelete={() =>
-                    setCards((prev) => prev.filter((_, at) => at !== i))
+                    setPicks((prev) => prev.filter((_, at) => at !== i))
                   }
                 />
               ))}
@@ -372,8 +413,8 @@ export function EffectWizard({
           </>
         )}
         {body()}
-        {picked && (
-          <Button size="small" onClick={() => setPicked(null)} sx={{ mt: 1 }}>
+        {player && (
+          <Button size="small" onClick={() => setPlayer(null)} sx={{ mt: 1 }}>
             Back to players
           </Button>
         )}

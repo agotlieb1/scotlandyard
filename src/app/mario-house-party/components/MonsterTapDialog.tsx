@@ -18,10 +18,11 @@ import type { Play } from "@/lib/mario-card-effects";
 import { TABLE } from "../theme";
 
 /**
- * What a monster already on your mat can be tapped to do. Which monsters can
- * be tapped, and what tapping does, is written on the cards: Bob-omb and the
- * Koopas are thrown to another mat, Boos hide and come back, Dry Bones goes
- * into the deck. Tapping spends an action, like playing a card does.
+ * What a monster on a mat can be tapped to do. Once a card is on a mat anyone
+ * at the table can tap it — you can untap an enemy's Boo. What tapping does is
+ * written on the cards: Bob-omb and the Koopas are thrown to another mat, Boos
+ * hide and come back, Dry Bones goes into the deck. Tapping spends an action,
+ * like playing a card does.
  */
 export function MonsterTapDialog({
   target,
@@ -47,7 +48,7 @@ export function MonsterTapDialog({
   const canDeck = monster.name === "Dry Bones";
   const nothing = !canThrow && !canHide && !canDeck;
 
-  const others = players.filter((p) => p.id !== youId);
+  const others = players.filter((p) => p.id !== target.playerId);
 
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="xs">
@@ -130,12 +131,14 @@ export function MonsterTapDialog({
                       flexShrink: 0,
                     }}
                   />
-                  <Typography sx={{ fontWeight: 600 }}>{player.name}</Typography>
+                  <Typography sx={{ fontWeight: 600 }}>
+                    {player.id === youId ? `${player.name} (you)` : player.name}
+                  </Typography>
                 </ListItemButton>
               ))}
               {others.length === 0 && (
                 <Typography variant="body2" sx={{ px: 2, py: 1 }}>
-                  There is nobody else to throw it at.
+                  There is no other mat to throw it onto.
                 </Typography>
               )}
             </List>
@@ -151,27 +154,35 @@ export function MonsterTapDialog({
 }
 
 /**
- * Your monsters by name, for when the one you want to tap is buried under
- * the pile. Same escape hatch as choosing a target from a list.
+ * Every monster on the table by name, for when the one you want to tap is
+ * buried under a pile. Same escape hatch as choosing a target from a list.
  */
 export function MonsterTapList({
   open,
-  you,
+  players,
+  youId,
   onClose,
   onPick,
 }: {
   open: boolean;
-  you: TargetablePlayer;
+  players: TargetablePlayer[];
+  youId: string;
   onClose: () => void;
   onPick: (ref: CardRef) => void;
 }) {
-  const rows = cardsOnMat(you, (c) => c.type === "monster");
+  const rows = players.flatMap((player) =>
+    cardsOnMat(player, (c) => c.type === "monster").map((row) => ({
+      ...row,
+      whose: player.id === youId ? "yours" : `${player.name}'s`,
+      colour: player.colour,
+    }))
+  );
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
       <DialogTitle sx={{ pb: 1 }}>
         <Typography variant="overline" sx={{ color: TABLE.brass, display: "block" }}>
-          Your monsters
+          Monsters on the table
         </Typography>
         <Typography variant="h6">Tap which one?</Typography>
       </DialogTitle>
@@ -182,11 +193,11 @@ export function MonsterTapList({
             color="text.secondary"
             sx={{ px: 2, py: 3, textAlign: "center" }}
           >
-            Nothing on your mat to tap.
+            There are no monsters on the table.
           </Typography>
         ) : (
           <List disablePadding>
-            {rows.map(({ ref }) => {
+            {rows.map(({ ref, whose, colour }) => {
               const monster = ref.card;
               const does =
                 monster.type === "monster" && monster.isHideable
@@ -200,16 +211,29 @@ export function MonsterTapList({
                       : "nothing happens when tapped";
               return (
                 <ListItemButton
-                  key={`${ref.index}`}
+                  key={`${ref.playerId}-${ref.index}`}
                   onClick={() => {
                     onPick(ref);
                     onClose();
                   }}
                   sx={{ borderRadius: 2, mb: 0.5 }}
                 >
+                  <Box
+                    sx={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      bgcolor: colour,
+                      mr: 1.5,
+                      flexShrink: 0,
+                    }}
+                  />
                   <Stack sx={{ minWidth: 0 }}>
                     <Typography sx={{ fontWeight: 600 }} noWrap>
                       {monster.type === "monster" ? monster.name : "Card"}
+                      <Box component="span" sx={{ opacity: 0.6, fontWeight: 400 }}>
+                        {` — ${whose}`}
+                      </Box>
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       {does}

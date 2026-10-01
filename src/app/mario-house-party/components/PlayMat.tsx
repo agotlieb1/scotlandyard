@@ -279,6 +279,7 @@ export function PlayMat({
   board,
   name,
   colour,
+  note,
   cardWidth = 64,
   dimmed = false,
   maxVisible,
@@ -293,6 +294,8 @@ export function PlayMat({
   board: MatBoard;
   name: string;
   colour: string;
+  /** Something true of this player right now — Star Power, a skipped turn. */
+  note?: { text: string; tint?: string } | null;
   cardWidth?: number;
   dimmed?: boolean;
   maxVisible?: number;
@@ -372,6 +375,24 @@ export function PlayMat({
           >
             {name}
           </Typography>
+          {note && (
+            <Typography
+              sx={{
+                fontSize: "0.58rem",
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: note.tint ?? TABLE.brass,
+                border: `1px solid ${note.tint ?? TABLE.brass}66`,
+                borderRadius: 999,
+                px: 0.75,
+                py: "1px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {note.text}
+            </Typography>
+          )}
         </Stack>
 
         {/* Row 1 — the temporary slot */}

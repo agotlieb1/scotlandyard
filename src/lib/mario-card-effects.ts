@@ -146,30 +146,51 @@ export const isInvincible = (card: GameCard) =>
   (card as { invincible?: boolean }).invincible === true;
 
 /**
- * Why an actor cannot touch a card, or null if they can. A card's own owner
- * is always allowed: Bob-omb's whole trick is that its owner throws it at
- * someone else, and a Tanuki'd hero still belongs to the player who grew it.
+ * What an effect is trying to do to a card, which is what decides whether a
+ * protection stops it.
+ *
+ *  - `destroy` sends it to the discard pile or the deck
+ *  - `move` slides it to another mat, or swaps it
+ *  - `steal` takes it into a hand
+ */
+export type EffectKind = "destroy" | "move" | "steal";
+
+/**
+ * Why an actor cannot touch a card, or null if they can.
+ *
+ * Bob-omb "cannot be destroyed or removed from play", which is not the same
+ * as not being moved: its own card says it can be tapped and thrown, and
+ * anyone at the table can tap it, so sliding and swapping it are fair too. A
+ * Tanuki Suit is the stricter one — "can not be destroyed, moved or stolen" —
+ * and only the player whose mat it sits on may move their own. Star Power
+ * puts a whole player out of reach of everybody else.
  */
 export function protectionOn(
   table: Table,
   spot: AnySpot,
-  actorId: string
+  actorId: string,
+  kind: EffectKind = "destroy"
 ): string | null {
-  if (spot.playerId === actorId) return null;
-
   const card = cardAt(table, spot);
   if (!card) return "That card is not there any more.";
 
-  const starUntil = table.effects.starPower[spot.playerId];
-  if (starUntil !== undefined && table.turnNumber <= starUntil) {
-    return "They have Star Power — nothing can touch them or their board.";
+  if (spot.playerId !== actorId) {
+    const starUntil = table.effects.starPower[spot.playerId];
+    if (starUntil !== undefined && table.turnNumber <= starUntil) {
+      return "They have Star Power — nothing can touch them or their board.";
+    }
   }
-  if (isBobOmb(card)) {
+
+  if (isBobOmb(card) && kind !== "move") {
     return "Bob-omb cannot be destroyed or removed from play.";
   }
+
   if (isInvincible(card)) {
+    // The owner may still rearrange their own.
+    if (kind === "move" && spot.playerId === actorId) return null;
     return "A Tanuki Suit makes that hero invincible.";
   }
+
   return null;
 }
 
@@ -331,7 +352,7 @@ export function resolve(table: Table, actorId: string, play: Play): Resolution {
           return { ok: false, error: "Pick three different cards." };
         }
         seen.add(key);
-        const why = protectionOn(next, target, actorId);
+        const why = protectionOn(next, target, actorId, "destroy");
         if (why) return { ok: false, error: why };
       }
       const hit: string[] = [];
@@ -354,7 +375,7 @@ export function resolve(table: Table, actorId: string, play: Play): Resolution {
     }
 
     case "slide": {
-      const why = protectionOn(next, play.target, actorId);
+      const why = protectionOn(next, play.target, actorId, "move");
       if (why) return { ok: false, error: why };
       const destination = seatOf(next, play.toPlayerId);
       if (!destination) return { ok: false, error: "No such player." };
@@ -375,7 +396,7 @@ export function resolve(table: Table, actorId: string, play: Play): Resolution {
     }
 
     case "warp": {
-      const why = protectionOn(next, play.target, actorId);
+      const why = protectionOn(next, play.target, actorId, "steal");
       if (why) return { ok: false, error: why };
       const card = removeAt(next, play.target);
       if (!card) return { ok: false, error: "That card is not there any more." };
@@ -394,7 +415,7 @@ export function resolve(table: Table, actorId: string, play: Play): Resolution {
           return { ok: false, error: "You can only swap from your own hand." };
         }
         if (spot.row !== "hand") {
-          const why = protectionOn(next, spot, actorId);
+          const why = protectionOn(next, spot, actorId, "move");
           if (why) return { ok: false, error: why };
         }
       }
@@ -518,14 +539,13 @@ export function resolve(table: Table, actorId: string, play: Play): Resolution {
     }
 
     case "tap-move": {
-      if (play.spot.playerId !== actorId) {
-        return { ok: false, error: "Only the player it sits on can tap it." };
-      }
+      const owner = playerProtected(next, play.spot.playerId, actorId);
+      if (owner) return { ok: false, error: owner };
       const blocked = playerProtected(next, play.toPlayerId, actorId);
       if (blocked) return { ok: false, error: blocked };
       const destination = seatOf(next, play.toPlayerId);
       if (!destination) return { ok: false, error: "No such player." };
-      if (play.toPlayerId === actorId) {
+      if (play.toPlayerId === play.spot.playerId) {
         return { ok: false, error: "Throw it to a different mat." };
       }
       const card = removeAt(next, play.spot);
@@ -539,10 +559,10 @@ export function resolve(table: Table, actorId: string, play: Play): Resolution {
     }
 
     case "tap-hide": {
-      if (play.spot.playerId !== actorId) {
-        return { ok: false, error: "Only the player it sits on can tap it." };
-      }
-      const seat = seatOf(next, actorId)!;
+      const shielded = playerProtected(next, play.spot.playerId, actorId);
+      if (shielded) return { ok: false, error: shielded };
+      const seat = seatOf(next, play.spot.playerId);
+      if (!seat) return { ok: false, error: "No such player." };
       const zone = zoneOf(seat.board, play.spot);
       const card = zone[play.spot.index];
       if (!card || card.type !== "monster" || !card.isHideable) {
@@ -564,9 +584,8 @@ export function resolve(table: Table, actorId: string, play: Play): Resolution {
       };
 
     case "tap-to-deck": {
-      if (play.spot.playerId !== actorId) {
-        return { ok: false, error: "Only the player it sits on can tap it." };
-      }
+      const shielded = playerProtected(next, play.spot.playerId, actorId);
+      if (shielded) return { ok: false, error: shielded };
       const card = removeAt(next, play.spot);
       if (!card) return { ok: false, error: "That card is not there any more." };
       shuffleInto(next.deck, card);

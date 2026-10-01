@@ -97,6 +97,10 @@ export default function TablePreviewPage() {
     COLLECTABLE_CARDS[0],
     MONSTER_CARDS[3],
     POWERUP_CARDS[0],
+    // A couple of named power-ups, so every wizard path is reachable here:
+    // Gold Pipe wants two cards (one may be in your hand), the Hammer a player.
+    POWERUP_CARDS.find((c) => c.name === "Gold Pipe") ?? POWERUP_CARDS[1],
+    POWERUP_CARDS.find((c) => c.name === "K.O. Hammer") ?? POWERUP_CARDS[2],
   ]);
   const [picked, setPicked] = useState<GameCard | null>(null);
   const [myBoard, setMyBoard] = useState<MatBoard>(board(2));
@@ -168,7 +172,7 @@ export default function TablePreviewPage() {
   };
   const stageCard = (ref: CardRef) => {
     if (!picked) {
-      if (ref.playerId === "me" && ref.card.type === "monster") setTapTarget(ref);
+      if (ref.card.type === "monster") setTapTarget(ref);
       return;
     }
     setAimedAt(ref);
@@ -253,6 +257,10 @@ export default function TablePreviewPage() {
     ...p,
     board: board(i + 1),
     isTurn: i === 1,
+    // Two states the engine enforces, shown here so the badges can be read:
+    // Star Power on one seat, a Piranha'd turn on another.
+    starred: i === 0,
+    skipping: i === 2,
   }));
 
   return (
@@ -374,13 +382,17 @@ export default function TablePreviewPage() {
 
           {!picked && (
             <Button variant="outlined" onClick={() => setTapListOpen(true)}>
-              Tap one of your monsters
+              Tap a monster
             </Button>
           )}
 
           <MonsterTapList
             open={tapListOpen}
-            you={{ id: "me", name: me.name, colour: "#e74c3c", board: asStored(myBoard) }}
+            youId="me"
+            players={[
+              { id: "me", name: me.name, colour: "#e74c3c", board: asStored(myBoard) },
+              { id: "them", name: "Damond", colour: "#3498db", board: asStored(theirBoard) },
+            ]}
             onClose={() => setTapListOpen(false)}
             onPick={setTapTarget}
           />
@@ -403,6 +415,7 @@ export default function TablePreviewPage() {
             open={wizardOpen}
             card={picked}
             youId="me"
+            hand={hand}
             discard={discard}
             players={[
               { id: "me", name: me.name, colour: "#e74c3c", board: asStored(myBoard) },
@@ -476,7 +489,7 @@ export default function TablePreviewPage() {
               playerId={viewedId}
               cardWidth={64}
               armed={Boolean(picked)}
-              aimAtCards={picked?.type === "powerup" || (!picked && viewing === "me")}
+              aimAtCards={picked?.type === "powerup" || !picked}
               aimedAt={aimedAt}
               onZoneChoose={(zone) => stageZone(zone)}
               onZoneDropCard={(zone, card) => stageZone(zone, card)}

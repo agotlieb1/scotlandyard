@@ -289,9 +289,8 @@ export default function MarioGamePage() {
     // Nothing in hand: tapping your own monster is how its own ability is
     // used.
     if (!selectedCard) {
-      if (ref.playerId === playerId && ref.card.type === "monster") {
-        setTapTarget(ref);
-      }
+      // Anything on a mat can be tapped by anyone at the table.
+      if (ref.card.type === "monster") setTapTarget(ref);
       return;
     }
     setAimedAt(ref);
@@ -607,6 +606,13 @@ export default function MarioGamePage() {
     players.find((p) => p.player_id === id)?.player_name || "Player";
   const currentPlayerHand = currentPlayer?.hand || [];
 
+  // Star Power lasts to the end of the player's next turn, so it is up while
+  // the turn it was bought on has not been passed yet.
+  const starPowerUp = (id: string) => {
+    const until = gameState?.effects?.starPower?.[id];
+    return until !== undefined && (gameState?.turn_number ?? 0) <= until;
+  };
+
   // DISPLAY MODE - Shared screen shows all boards, no hands
   if (isDisplayMode) {
     return (
@@ -652,6 +658,10 @@ export default function MarioGamePage() {
                 colour: player.player_color || PLAYER_COLORS[i % PLAYER_COLORS.length].primary,
                 board: toMatBoard(player.board),
                 isTurn: gameState?.current_turn_player_id === player.player_id,
+                starred: starPowerUp(player.player_id),
+                skipping: Boolean(
+                  gameState?.effects?.skipNext?.includes(player.player_id)
+                ),
               }))}
               deckCount={gameState?.deck?.length}
               discardCount={gameState?.discard_pile?.length}
@@ -763,7 +773,13 @@ export default function MarioGamePage() {
               return (
                 <Chip
                   key={p.player_id}
-                  label={isYou ? "You" : p.player_name || "Player"}
+                  label={`${isYou ? "You" : p.player_name || "Player"}${
+                    starPowerUp(p.player_id)
+                      ? " ★"
+                      : gameState?.effects?.skipNext?.includes(p.player_id)
+                        ? " ⤫"
+                        : ""
+                  }`}
                   onClick={() => {
                     setViewedPlayerId(p.player_id);
                     setAimedAt(null);
@@ -793,7 +809,7 @@ export default function MarioGamePage() {
               {!isMyTurn
                 ? "Waiting for your turn."
                 : !selectedCard
-                  ? "Tap a card in your hand to pick it up."
+                  ? "Tap a card in your hand to pick it up, or tap any monster on a mat to use it."
                   : viewedMatId === playerId
                     ? "Tap a zone on your mat to play it — or pick another player above to play it at them."
                     : `Tap a zone on ${viewedPlayer?.player_name || "their"} mat, or a card of theirs to use it on.`}
@@ -806,7 +822,7 @@ export default function MarioGamePage() {
               onClick={() => setTapListOpen(true)}
               sx={{ alignSelf: "center" }}
             >
-              Tap one of your monsters
+              Tap a monster
             </Button>
           )}
 
@@ -847,12 +863,18 @@ export default function MarioGamePage() {
                 PLAYER_COLORS.find((c) => c.key === viewedPlayer?.player_color)
                   ?.primary || TABLE.cyan
               }
+              note={
+                starPowerUp(viewedMatId)
+                  ? { text: "Star Power" }
+                  : gameState?.effects?.skipNext?.includes(viewedMatId)
+                    ? { text: "Turn skipped", tint: TABLE.danger }
+                    : null
+              }
               playerId={viewedMatId}
               cardWidth={64}
               armed={Boolean(selectedCard) && isMyTurn}
               aimAtCards={
-                selectedCard?.type === "powerup" ||
-                (!selectedCard && viewedMatId === playerId && isMyTurn)
+                selectedCard?.type === "powerup" || (!selectedCard && isMyTurn)
               }
               aimedAt={aimedAt}
               onZoneChoose={(zone) => handleZoneChoose(zone, viewedMatId)}
@@ -870,12 +892,18 @@ export default function MarioGamePage() {
 
           <MonsterTapList
             open={tapListOpen}
-            you={{
-              id: playerId,
-              name: currentPlayer?.player_name || "You",
-              colour: TABLE.cyan,
-              board: currentPlayer?.board,
-            }}
+            youId={playerId}
+            players={players.map((p, i) => ({
+              id: p.player_id,
+              name:
+                p.player_id === playerId
+                  ? p.player_name || "You"
+                  : p.player_name || `Player ${i + 1}`,
+              colour:
+                PLAYER_COLORS.find((c) => c.key === p.player_color)?.primary ||
+                TABLE.cyan,
+              board: p.board,
+            }))}
             onClose={() => setTapListOpen(false)}
             onPick={setTapTarget}
           />
@@ -906,6 +934,7 @@ export default function MarioGamePage() {
             open={wizardOpen}
             card={selectedCard}
             youId={playerId}
+            hand={currentPlayerHand}
             discard={gameState?.discard_pile ?? []}
             players={players.map((p, i) => ({
               id: p.player_id,

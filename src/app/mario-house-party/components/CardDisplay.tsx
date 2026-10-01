@@ -65,6 +65,8 @@ export function CardDisplay({ card, size = "medium" }: CardDisplayProps) {
 
   return (
     <Box
+      // The card's name, for picking one out of a mat or a hand in a test.
+      data-card={getCardTitle()}
       sx={{
         width,
         height,

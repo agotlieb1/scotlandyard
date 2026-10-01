@@ -11,6 +11,10 @@ export type Seat = {
   colour: string;
   board: MatBoard;
   isTurn?: boolean;
+  /** Star Power is up: nothing can touch this player until it lapses. */
+  starred?: boolean;
+  /** A Piranha Plant has this player's next turn. */
+  skipping?: boolean;
 };
 
 /**
@@ -177,6 +181,13 @@ export function TableView({
               board={seat.board}
               name={seat.name}
               colour={seat.colour}
+              note={
+                seat.starred
+                  ? { text: "Star Power" }
+                  : seat.skipping
+                    ? { text: "Turn skipped", tint: TABLE.danger }
+                    : null
+              }
               cardWidth={fittedWidth}
               maxVisible={4}
               dimmed={seats.some((s) => s.isTurn) && !seat.isTurn}
