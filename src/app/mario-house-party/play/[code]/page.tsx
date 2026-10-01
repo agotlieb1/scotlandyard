@@ -28,7 +28,20 @@ import { playCard, endTurn, stealCard } from "@/lib/mario-game-actions";
 import type { MarioGame, MarioGamePlayer, MarioGameState } from "@/lib/mario-types";
 import type { GameCard } from "@/app/mario-house-party/types";
 import { PlayerHand } from "@/app/mario-house-party/components/PlayerHand";
-import { PlayMat, toMatBoard, type MatZone } from "@/app/mario-house-party/components/PlayMat";
+import {
+  PlayMat,
+  toMatBoard,
+  type CardRef,
+  type MatZone,
+} from "@/app/mario-house-party/components/PlayMat";
+import { SeatIdentity } from "@/app/mario-house-party/components/SeatIdentity";
+import {
+  PendingActionBar,
+  describeAction,
+  type PendingAction,
+} from "@/app/mario-house-party/components/PendingActionBar";
+import { playCardOnPlayer } from "@/lib/mario-game-actions";
+import { upsertMarioPlayer as saveSeat } from "@/lib/mario-games";
 import { TableView, type Seat } from "@/app/mario-house-party/components/TableView";
 import { TABLE } from "@/app/mario-house-party/theme";
 import { TurnDisplay } from "@/app/mario-house-party/components/TurnDisplay";
@@ -61,6 +74,12 @@ export default function MarioGamePage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [isDisplayMode, setIsDisplayMode] = useState(false);
   const [selectedCard, setSelectedCard] = useState<GameCard | null>(null);
+  // Whose mat is on screen: your own, or someone you are playing at.
+  const [viewedPlayerId, setViewedPlayerId] = useState<string | null>(null);
+  const [aimedAt, setAimedAt] = useState<CardRef | null>(null);
+  // Nothing reaches the table until this is confirmed.
+  const [pending, setPending] = useState<PendingAction | null>(null);
+  const [savingSeat, setSavingSeat] = useState(false);
 
   // Initial load
   useEffect(() => {
@@ -242,10 +261,77 @@ export default function MarioGamePage() {
     }
   };
 
-  // Tap a card in hand to pick it up, tap a zone to put it down.
-  const handleZoneChoose = (zone: MatZone) => {
+  // Tap a card in hand to pick it up, tap a zone to aim it. The play is only
+  // staged here; PendingActionBar is what sends it.
+  const handleZoneChoose = (zone: MatZone, onMatOf: string) => {
     if (!selectedCard) return;
-    handleCardPlay(selectedCard, zone);
+    setPending({
+      kind: "play",
+      card: selectedCard,
+      zone,
+      targetPlayerId: onMatOf,
+    });
+  };
+
+  const handleCardChoose = (ref: CardRef) => {
+    if (!selectedCard) return;
+    setAimedAt(ref);
+    setPending({ kind: "aim", card: selectedCard, target: ref });
+  };
+
+  const clearPending = () => {
+    setPending(null);
+    setAimedAt(null);
+  };
+
+  const handleConfirm = async () => {
+    if (!pending || actionLoading) return;
+    setActionLoading(true);
+
+    const result =
+      pending.kind === "steal"
+        ? await stealCard(code, playerId, pending.targetPlayerId)
+        : pending.kind === "play"
+          ? await playCardOnPlayer(
+              code,
+              playerId,
+              pending.targetPlayerId,
+              pending.card,
+              pending.zone
+            )
+          : // An aimed card lands in the target's temporary row, so the table
+            // can see what was played at whom. What it then does to the card
+            // it was aimed at is resolved at the table, not here.
+            await playCardOnPlayer(
+              code,
+              playerId,
+              pending.target.playerId,
+              pending.card,
+              "in-play"
+            );
+
+    setActionLoading(false);
+
+    if ("error" in result) {
+      setError(result.error ?? "Unknown error");
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    setSelectedCard(null);
+    clearPending();
+  };
+
+  const handleSaveSeat = async (name: string, colourKey: string) => {
+    setSavingSeat(true);
+    const result = await saveSeat(code, playerId, colourKey, name);
+    setSavingSeat(false);
+    if ("error" in result) {
+      setError(result.error ?? "Unknown error");
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+    setCurrentPlayer(result.data);
   };
 
   const handleEndTurn = async () => {
@@ -469,6 +555,11 @@ export default function MarioGamePage() {
 
   // Active game view
   const isMyTurn = gameState?.current_turn_player_id === playerId;
+  const viewedMatId = viewedPlayerId ?? playerId;
+  const viewedPlayer =
+    players.find((p) => p.player_id === viewedMatId) ?? currentPlayer;
+  const nameOf = (id: string) =>
+    players.find((p) => p.player_id === id)?.player_name || "Player";
   const currentPlayerHand = currentPlayer?.hand || [];
 
   // DISPLAY MODE - Shared screen shows all boards, no hands
@@ -577,6 +668,20 @@ export default function MarioGamePage() {
             />
           )}
 
+          {/* Who you are at this table */}
+          {currentPlayer && (
+            <SeatIdentity
+              name={currentPlayer.player_name || ""}
+              colourKey={currentPlayer.player_color}
+              colours={PLAYER_COLORS}
+              takenColours={players
+                .filter((p) => p.player_id !== playerId)
+                .map((p) => p.player_color)}
+              saving={savingSeat}
+              onSave={handleSaveSeat}
+            />
+          )}
+
           {/* Player Hand - ONLY visible on their own device */}
           <PlayerHand
             hand={currentPlayerHand}
@@ -596,6 +701,40 @@ export default function MarioGamePage() {
             }}
           />
 
+          {/* Whose mat you are looking at */}
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ overflowX: "auto", pb: 0.5 }}
+            useFlexGap
+            flexWrap="nowrap"
+          >
+            {players.map((p) => {
+              const colour =
+                PLAYER_COLORS.find((c) => c.key === p.player_color)?.primary ||
+                TABLE.cyan;
+              const isYou = p.player_id === playerId;
+              const viewing = p.player_id === viewedMatId;
+              return (
+                <Chip
+                  key={p.player_id}
+                  label={isYou ? "You" : p.player_name || "Player"}
+                  onClick={() => {
+                    setViewedPlayerId(p.player_id);
+                    setAimedAt(null);
+                  }}
+                  sx={{
+                    flexShrink: 0,
+                    bgcolor: viewing ? `${colour}33` : "rgba(7,29,41,0.6)",
+                    border: `1px solid ${viewing ? colour : "rgba(253,247,238,0.2)"}`,
+                    color: viewing ? TABLE.cream : "text.secondary",
+                    fontWeight: viewing ? 700 : 500,
+                  }}
+                />
+              );
+            })}
+          </Stack>
+
           {/* What to do next, in one line that changes as you go */}
           <Paper
             sx={{
@@ -608,13 +747,15 @@ export default function MarioGamePage() {
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {!isMyTurn
                 ? "Waiting for your turn."
-                : selectedCard
-                  ? "Now tap a zone on your mat to play it — or tap the card again to put it back."
-                  : "Tap a card in your hand to pick it up."}
+                : !selectedCard
+                  ? "Tap a card in your hand to pick it up."
+                  : viewedMatId === playerId
+                    ? "Tap a zone on your mat to play it — or pick another player above to play it at them."
+                    : `Tap a zone on ${viewedPlayer?.player_name || "their"} mat, or a card of theirs to use it on.`}
             </Typography>
           </Paper>
 
-          {/* Player's Own Mat */}
+          {/* The mat you are looking at */}
           <Box
             id="my-mat"
             sx={{
@@ -625,13 +766,31 @@ export default function MarioGamePage() {
             }}
           >
             <PlayMat
-              board={toMatBoard(currentPlayer?.board)}
-              name={currentPlayer?.player_name || "You"}
-              colour={currentPlayer?.player_color || TABLE.cyan}
+              board={toMatBoard(viewedPlayer?.board)}
+              name={
+                viewedMatId === playerId
+                  ? currentPlayer?.player_name || "You"
+                  : viewedPlayer?.player_name || "Player"
+              }
+              colour={
+                PLAYER_COLORS.find((c) => c.key === viewedPlayer?.player_color)
+                  ?.primary || TABLE.cyan
+              }
+              playerId={viewedMatId}
               cardWidth={64}
               armed={Boolean(selectedCard) && isMyTurn}
-              onZoneChoose={handleZoneChoose}
-              onZoneDropCard={(zone, card) => handleCardPlay(card, zone)}
+              aimAtCards={selectedCard?.type === "powerup"}
+              aimedAt={aimedAt}
+              onZoneChoose={(zone) => handleZoneChoose(zone, viewedMatId)}
+              onZoneDropCard={(zone, card) =>
+                setPending({
+                  kind: "play",
+                  card,
+                  zone,
+                  targetPlayerId: viewedMatId,
+                })
+              }
+              onCardChoose={handleCardChoose}
             />
           </Box>
 
@@ -641,10 +800,22 @@ export default function MarioGamePage() {
             players={players}
             currentPlayerId={playerId}
             onClose={() => setStealDialogOpen(false)}
-            onSelectPlayer={handleSteal}
+            onSelectPlayer={(targetPlayerId) =>
+              setPending({ kind: "steal", targetPlayerId })
+            }
           />
         </Stack>
       </Container>
+
+      <PendingActionBar
+        action={pending}
+        description={
+          pending ? describeAction(pending, nameOf, playerId) : ""
+        }
+        busy={actionLoading}
+        onUndo={clearPending}
+        onConfirm={handleConfirm}
+      />
     </Box>
   );
 }

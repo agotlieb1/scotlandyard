@@ -182,7 +182,33 @@ have no such key and read as an empty row, so there is nothing to migrate.
 
 **The live board uses both.** A device that created the game (its
 `display_device_id`) is the shared screen and shows `TableView`; everyone
-else sees their own mat and their own hand. Playing a card is: tap it in your
+else sees their own mat and their own hand.
+
+On a phone a player can:
+
+- **say who they are** — a seat arrives called "Player 3" in whatever colour
+  was free, and `SeatIdentity` is where that gets fixed. It stays open until a
+  name is chosen, then folds to a line. Colours already taken are shown
+  disabled.
+- **look at anyone's mat** — a strip of players above the mat switches whose
+  board is on screen.
+- **play at someone else** — a monster into their Koopa pen, a Piranha Plant
+  into their temporary row. `playCardOnPlayer` writes their board first and
+  your hand second, so a failure half way leaves the card in your hand rather
+  than nowhere.
+- **aim a power-up at a card** — while a power-up is held, the cards on the
+  mat become targets too. Only a power-up does this: a pile of cards would
+  otherwise swallow every tap meant for the zone underneath it. In a stack
+  only the top card is fully exposed, so a buried card is aimed at by its
+  peeking strip, the same as reaching into a real pile.
+- **think again** — nothing is written until Confirm. Every play, steal and
+  aim is staged in `PendingActionBar`, which reads the action back in words
+  ("Play Mario into Damond's Koopas", "Use Fire Flower on Damond's
+  DiddyKong") with Undo beside it.
+
+A confirmed aim puts the power-up in the target's temporary row, so the table
+can see what was played at whom. What it then *does* — Fireball discarding its
+target, Ice Flower freezing one — is resolved at the table, not in the app. Playing a card is: tap it in your
 hand to pick it up, which lifts the card, lights every zone on the mat and
 scrolls the mat into view, then tap a zone to put it down. Dragging still
 works on a desktop — a zone reads the card off the drag event. This replaced

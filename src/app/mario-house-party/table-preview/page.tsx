@@ -10,8 +10,14 @@ import {
   Typography,
 } from "@mui/material";
 
-import { PlayMat, type MatBoard, type MatZone } from "../components/PlayMat";
+import { PlayMat, type CardRef, type MatBoard, type MatZone } from "../components/PlayMat";
 import { PlayerHand } from "../components/PlayerHand";
+import { SeatIdentity } from "../components/SeatIdentity";
+import {
+  PendingActionBar,
+  describeAction,
+  type PendingAction,
+} from "../components/PendingActionBar";
 import type { GameCard } from "../types";
 import { TableView, type Seat } from "../components/TableView";
 import { COLLECTABLE_CARDS, HERO_CARDS } from "../card-library";
@@ -46,6 +52,16 @@ const board = (seed: number): MatBoard => ({
   monsters: MONSTER_CARDS.slice(seed % 3, (seed % 3) + (1 + (seed % 3))),
 });
 
+// The same six seats the live game offers.
+const SEAT_COLOURS = [
+  { key: "red", primary: "#e74c3c", name: "Red" },
+  { key: "blue", primary: "#3498db", name: "Blue" },
+  { key: "green", primary: "#2ecc71", name: "Green" },
+  { key: "orange", primary: "#f39c12", name: "Orange" },
+  { key: "purple", primary: "#9b59b6", name: "Purple" },
+  { key: "teal", primary: "#1abc9c", name: "Teal" },
+];
+
 const PLAYERS = [
   { id: "p1", name: "Aaron", colour: "#e74c3c" },
   { id: "p2", name: "Damond", colour: "#3498db" },
@@ -71,36 +87,62 @@ export default function TablePreviewPage() {
   ]);
   const [picked, setPicked] = useState<GameCard | null>(null);
   const [myBoard, setMyBoard] = useState<MatBoard>(board(2));
+  const [theirBoard, setTheirBoard] = useState<MatBoard>(board(3));
+  const [viewing, setViewing] = useState<"me" | "them">("me");
+  const [aimedAt, setAimedAt] = useState<CardRef | null>(null);
+  const [pending, setPending] = useState<PendingAction | null>(null);
+  const [me, setMe] = useState({ name: "Player 1", colour: "red" });
 
-  const place = (zone: MatZone, card?: GameCard) => {
+  const nameOf = (id: string) => (id === "me" ? me.name : "Damond");
+  const viewedId = viewing === "me" ? "me" : "them";
+
+  const addTo = (prev: MatBoard, zone: MatZone, card: GameCard): MatBoard => {
+    const next: MatBoard = {
+      inPlay: [...prev.inPlay],
+      heroes: { ...prev.heroes },
+      collectables: { ...prev.collectables },
+      monsters: [...prev.monsters],
+    };
+    if (zone === "in-play") {
+      next.inPlay = [...next.inPlay, card];
+    } else if (card.type === "monster" && zone === "bowsers-castle") {
+      next.monsters = [...next.monsters, card];
+    } else if (card.type === "collectable" && zone !== "bowsers-castle") {
+      next.collectables = {
+        ...next.collectables,
+        [zone]: [...(next.collectables[zone] ?? []), card],
+      };
+    } else {
+      next.heroes = { ...next.heroes, [zone]: [...(next.heroes[zone] ?? []), card] };
+    }
+    return next;
+  };
+
+  // Staging only — nothing moves until Confirm, exactly as the live board.
+  const stageZone = (zone: MatZone, card?: GameCard) => {
     const playing = card ?? picked;
     if (!playing) return;
-    setMyBoard((prev) => {
-      const next: MatBoard = {
-        inPlay: [...prev.inPlay],
-        heroes: { ...prev.heroes },
-        collectables: { ...prev.collectables },
-        monsters: [...prev.monsters],
-      };
-      if (zone === "in-play") {
-        next.inPlay = [...next.inPlay, playing];
-      } else if (playing.type === "monster" && zone === "bowsers-castle") {
-        next.monsters = [...next.monsters, playing];
-      } else if (playing.type === "collectable" && zone !== "bowsers-castle") {
-        next.collectables = {
-          ...next.collectables,
-          [zone]: [...(next.collectables[zone] ?? []), playing],
-        };
-      } else {
-        next.heroes = {
-          ...next.heroes,
-          [zone]: [...(next.heroes[zone] ?? []), playing],
-        };
-      }
-      return next;
-    });
-    setHand((prev) => prev.filter((c) => c !== playing));
+    setPending({ kind: "play", card: playing, zone, targetPlayerId: viewedId });
+  };
+  const stageCard = (ref: CardRef) => {
+    if (!picked) return;
+    setAimedAt(ref);
+    setPending({ kind: "aim", card: picked, target: ref });
+  };
+  const confirm = () => {
+    if (!pending) return;
+    if (pending.kind === "play") {
+      const put = pending.targetPlayerId === "me" ? setMyBoard : setTheirBoard;
+      put((prev) => addTo(prev, pending.zone, pending.card));
+      setHand((h) => h.filter((c) => c !== pending.card));
+    } else if (pending.kind === "aim") {
+      const put = pending.target.playerId === "me" ? setMyBoard : setTheirBoard;
+      put((prev) => addTo(prev, "in-play", pending.card));
+      setHand((h) => h.filter((c) => c !== pending.card));
+    }
     setPicked(null);
+    setPending(null);
+    setAimedAt(null);
   };
 
   const seats: Seat[] = PLAYERS.slice(0, seatCount).map((p, i) => ({
@@ -187,12 +229,21 @@ export default function TablePreviewPage() {
         </Typography>
 
         <Stack spacing={2}>
-          <Typography variant="h6">Your own mat, and playing onto it</Typography>
+          <Typography variant="h6">What a player sees on their phone</Typography>
           <Typography variant="body2" color="text.secondary">
-            The same thing the live board shows a player: tap a card to pick it
-            up, tap a zone to put it down. This copy keeps its cards in the
-            page rather than in the game, so it can be tried without one.
+            Name and colour, the hand, a strip to pick whose mat you are
+            looking at, and nothing reaching the table until you confirm it.
+            This copy keeps its cards in the page rather than in a game.
           </Typography>
+
+          <SeatIdentity
+            name={me.name}
+            colourKey={me.colour}
+            colours={SEAT_COLOURS}
+            takenColours={["blue"]}
+            onSave={(name, colour) => setMe({ name, colour })}
+          />
+
           <PlayerHand
             hand={hand}
             playerId="preview"
@@ -210,18 +261,50 @@ export default function TablePreviewPage() {
               })
             }
           />
+
+          <Stack direction="row" spacing={1}>
+            {(["me", "them"] as const).map((who) => (
+              <ToggleButton
+                key={who}
+                value={who}
+                selected={viewing === who}
+                onChange={() => {
+                  setViewing(who);
+                  setAimedAt(null);
+                }}
+                size="small"
+              >
+                {who === "me" ? "Your mat" : "Damond's mat"}
+              </ToggleButton>
+            ))}
+          </Stack>
+
           <Box id="my-mat" sx={{ overflowX: "auto", pb: 1 }}>
             <PlayMat
-              board={myBoard}
-              name="Aaron"
-              colour="#e74c3c"
+              board={viewing === "me" ? myBoard : theirBoard}
+              name={viewing === "me" ? me.name : "Damond"}
+              colour={viewing === "me" ? "#e74c3c" : "#3498db"}
+              playerId={viewedId}
               cardWidth={64}
               armed={Boolean(picked)}
-              onZoneChoose={place}
-              onZoneDropCard={(zone, card) => place(zone, card)}
+              aimAtCards={picked?.type === "powerup"}
+              aimedAt={aimedAt}
+              onZoneChoose={(zone) => stageZone(zone)}
+              onZoneDropCard={(zone, card) => stageZone(zone, card)}
+              onCardChoose={stageCard}
             />
           </Box>
         </Stack>
+
+        <PendingActionBar
+          action={pending}
+          description={pending ? describeAction(pending, nameOf, "me") : ""}
+          onUndo={() => {
+            setPending(null);
+            setAimedAt(null);
+          }}
+          onConfirm={confirm}
+        />
 
         <BrandHomeLink sx={{ color: TABLE.cyan }} />
       </Stack>

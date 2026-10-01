@@ -29,6 +29,14 @@ export type MatBoard = {
 /** Where a card can be played: a house, or the temporary row on top. */
 export type MatZone = MainHouse | "in-play";
 
+/** Enough to point at one card on one mat: whose, which zone, which card. */
+export type CardRef = {
+  playerId: string;
+  zone: MatZone;
+  index: number;
+  card: GameCard;
+};
+
 export const HOUSE_ORDER: MainHouse[] = [
   "mario-bros",
   "mushroom-kingdom",
@@ -61,6 +69,8 @@ function CardStack({
   maxVisible,
   armed = false,
   zone,
+  row,
+  selectedIndex,
   onChoose,
   onDropCard,
   onCardClick,
@@ -75,10 +85,14 @@ function CardStack({
   armed?: boolean;
   /** Which zone this is, so a drop knows where it landed. */
   zone?: MatZone;
+  /** Which row of the mat, since a house appears in two of them. */
+  row?: "in-play" | "heroes" | "collectables" | "monsters";
+  /** The card in this zone that is currently aimed at, if any. */
+  selectedIndex?: number | null;
   onChoose?: () => void;
   /** A card dragged from the hand carries itself in the drag event. */
   onDropCard?: (card: GameCard) => void;
-  onCardClick?: (card: GameCard) => void;
+  onCardClick?: (card: GameCard, index: number) => void;
 }) {
   const cardHeight = width * 1.4;
   const peek = cardHeight * PEEK;
@@ -92,6 +106,7 @@ function CardStack({
   return (
     <Box
       data-zone={zone}
+      data-row={row}
       onClick={onChoose}
       onDragOver={
         onDropCard ? (e: React.DragEvent) => e.preventDefault() : undefined
@@ -162,22 +177,42 @@ function CardStack({
           {cards.length}
         </Box>
       )}
-      {shown.map((card, i) => (
+      {shown.map((card, i) => {
+        // `shown` is the tail of the pile when it is deeper than the peek.
+        const index = cards.length - shown.length + i;
+        const aimedAt = selectedIndex === index;
+        return (
         <Box
-          key={i}
-          onClick={onCardClick ? () => onCardClick(card) : undefined}
+          key={index}
+          onClick={
+            onCardClick
+              ? (e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  onCardClick(card, index);
+                }
+              : undefined
+          }
           sx={{
             position: "absolute",
             top: peek * i,
             left: 0,
-            zIndex: i + 1,
+            zIndex: aimedAt ? 98 : i + 1,
+            cursor: onCardClick ? "pointer" : undefined,
+            transform: aimedAt ? "translateY(-12px)" : undefined,
+            filter: aimedAt
+              ? `drop-shadow(0 0 0 2px ${TABLE.brass}) drop-shadow(0 8px 16px rgba(0,0,0,0.7))`
+              : undefined,
+            outline: aimedAt ? `3px solid ${TABLE.brass}` : undefined,
+            outlineOffset: aimedAt ? "2px" : undefined,
+            borderRadius: "10px",
             transition: "transform 160ms cubic-bezier(0.2, 0.8, 0.3, 1)",
             "&:hover": { transform: "translateY(-10px)", zIndex: 99 },
           }}
         >
           <CardDisplayScaled card={card} width={width} />
         </Box>
-      ))}
+        );
+      })}
     </Box>
   );
 }
@@ -227,9 +262,12 @@ export function PlayMat({
   dimmed = false,
   maxVisible,
   armed = false,
+  aimAtCards = false,
+  playerId = "",
+  aimedAt,
   onZoneChoose,
   onZoneDropCard,
-  onCardClick,
+  onCardChoose,
 }: {
   board: MatBoard;
   name: string;
@@ -239,14 +277,33 @@ export function PlayMat({
   maxVisible?: number;
   /** A card is selected and every zone is a live target. */
   armed?: boolean;
+  /**
+   * The selected card is used *on* something — a Fireball, an Ice Flower — so
+   * the cards already on the mat become targets too. Off by default, or a
+   * pile of cards would swallow every tap meant for the zone under it.
+   */
+  aimAtCards?: boolean;
+  /** Whose mat this is, so a chosen card can say where it came from. */
+  playerId?: string;
+  /** The card on this mat that is currently aimed at. */
+  aimedAt?: CardRef | null;
   onZoneChoose?: (zone: MatZone) => void;
   onZoneDropCard?: (zone: MatZone, card: GameCard) => void;
-  onCardClick?: (card: GameCard) => void;
+  onCardChoose?: (ref: CardRef) => void;
 }) {
   const target = (zone: MatZone) =>
     onZoneChoose ? () => onZoneChoose(zone) : undefined;
   const dropped = (zone: MatZone) =>
     onZoneDropCard ? (card: GameCard) => onZoneDropCard(zone, card) : undefined;
+  const pick = (zone: MatZone) =>
+    onCardChoose && aimAtCards
+      ? (card: GameCard, index: number) =>
+          onCardChoose({ playerId, zone, index, card })
+      : undefined;
+  const aimed = (zone: MatZone) =>
+    aimedAt && aimedAt.zone === zone && aimedAt.playerId === playerId
+      ? aimedAt.index
+      : null;
   const gap = Math.round(cardWidth * 0.14);
 
   return (
@@ -306,9 +363,11 @@ export function PlayMat({
             minCards={1}
             armed={armed}
             zone="in-play"
+            row="in-play"
             onChoose={target("in-play")}
             onDropCard={dropped("in-play")}
-            onCardClick={onCardClick}
+            selectedIndex={aimed("in-play")}
+            onCardClick={pick("in-play")}
           />
         </Stack>
 
@@ -324,9 +383,11 @@ export function PlayMat({
                 maxVisible={maxVisible}
                 armed={armed}
                 zone={house}
+                row="heroes"
                 onChoose={target(house)}
                 onDropCard={dropped(house)}
-                onCardClick={onCardClick}
+                selectedIndex={aimed(house)}
+                onCardClick={pick(house)}
               />
             </Stack>
           ))}
@@ -344,9 +405,11 @@ export function PlayMat({
                   maxVisible={maxVisible}
                   armed={armed}
                   zone={house}
+                  row="collectables"
                   onChoose={target(house)}
                   onDropCard={dropped(house)}
-                  onCardClick={onCardClick}
+                  selectedIndex={aimed(house)}
+                  onCardClick={pick(house)}
                 />
               </Stack>
             )
@@ -369,9 +432,11 @@ export function PlayMat({
                 maxVisible={maxVisible}
                 armed={armed}
                 zone="bowsers-castle"
+                row="monsters"
                 onChoose={target("bowsers-castle")}
                 onDropCard={dropped("bowsers-castle")}
-                onCardClick={onCardClick}
+                selectedIndex={aimed("bowsers-castle")}
+                onCardClick={pick("bowsers-castle")}
               />
               <CardStack
                 cards={[]}

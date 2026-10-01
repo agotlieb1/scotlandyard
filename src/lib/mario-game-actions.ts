@@ -352,3 +352,104 @@ export async function playCard(
 
   return { ok: true };
 }
+
+/**
+ * Play a card from your hand onto someone else's mat — a monster into their
+ * Koopa pen, a Piranha Plant into their temporary row. The card leaves your
+ * hand and lands on their board, which is two rows to write, so a failure
+ * part way through leaves the card in your hand rather than in both places.
+ */
+export async function playCardOnPlayer(
+  gameCode: string,
+  actorPlayerId: string,
+  targetPlayerId: string,
+  card: GameCard,
+  targetZone: PlayTarget
+) {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return { error: "Supabase is not configured." };
+  }
+
+  if (actorPlayerId === targetPlayerId) {
+    return playCard(gameCode, actorPlayerId, card, targetZone);
+  }
+
+  const { data: rows, error: fetchError } = await supabase
+    .from("mario_game_players")
+    .select("*")
+    .eq("game_code", gameCode)
+    .in("player_id", [actorPlayerId, targetPlayerId]);
+
+  if (fetchError || !rows || rows.length !== 2) {
+    return { error: fetchError?.message || "Could not find both players." };
+  }
+
+  const actor = rows.find((p) => p.player_id === actorPlayerId);
+  const target = rows.find((p) => p.player_id === targetPlayerId);
+  if (!actor || !target) {
+    return { error: "Could not find both players." };
+  }
+
+  const hand: GameCard[] = actor.hand || [];
+  const cardIndex = hand.findIndex(
+    (c: GameCard) => JSON.stringify(c) === JSON.stringify(card)
+  );
+  if (cardIndex === -1) {
+    return { error: "Card not in hand." };
+  }
+
+  const board = target.board || {
+    "mario-bros": { heroes: [], collectables: [] },
+    "mushroom-kingdom": { heroes: [], collectables: [] },
+    "kong-island": { heroes: [], collectables: [] },
+    "bowsers-castle": { heroes: [], collectables: [], monsters: [] },
+  };
+  const newBoard = { ...board };
+
+  if (targetZone === "in-play") {
+    newBoard.inPlay = [...(newBoard.inPlay || []), card];
+  } else {
+    const houseBoard = { ...newBoard[targetZone] };
+    if (card.type === "hero") {
+      houseBoard.heroes = [...(houseBoard.heroes || []), card];
+    } else if (card.type === "collectable") {
+      houseBoard.collectables = [...(houseBoard.collectables || []), card];
+    } else if (card.type === "monster" && targetZone === "bowsers-castle") {
+      houseBoard.monsters = [...(houseBoard.monsters || []), card];
+    } else {
+      houseBoard.heroes = [...(houseBoard.heroes || []), card];
+    }
+    newBoard[targetZone] = houseBoard;
+  }
+
+  // Land it on their board first. If this fails nothing has moved; if the
+  // hand update fails afterwards the card is on the table twice, which is
+  // visible and fixable, rather than lost.
+  const { error: boardError } = await supabase
+    .from("mario_game_players")
+    .update({ board: newBoard, updated_at: new Date().toISOString() })
+    .eq("game_code", gameCode)
+    .eq("player_id", targetPlayerId);
+
+  if (boardError) {
+    return { error: boardError.message };
+  }
+
+  const { error: handError } = await supabase
+    .from("mario_game_players")
+    .update({
+      hand: hand.filter((_: GameCard, i: number) => i !== cardIndex),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("game_code", gameCode)
+    .eq("player_id", actorPlayerId);
+
+  if (handError) {
+    return { error: handError.message };
+  }
+
+  await recordAction(gameCode, "play", card.type, targetPlayerId);
+
+  return { ok: true };
+}
